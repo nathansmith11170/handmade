@@ -21,7 +21,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 bool handleEvent(SDL_Event *Event);
 void outputSDLErrorAndQuit();
 
-int main(int argc, char *argv[]) {
+int main() {
   int call_code {SDL_Init(SDL_INIT_VIDEO)};
   if (call_code < 0) {
     outputSDLErrorAndQuit();
@@ -67,7 +67,7 @@ int main(int argc, char *argv[]) {
 }
 
 bool handleEvent(SDL_Event *event) {
-  bool should_quit = false;
+  bool should_quit {false};
 
   switch (event->type) {
   case SDL_QUIT: {
