@@ -30,19 +30,31 @@ int main(int argc, char *argv[]) {
   auto window {
       SDL_CreateWindow("Handmade", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 640, 480, SDL_WINDOW_RESIZABLE)};
 
-  if (!window) {
+  if (window == nullptr) {
     return exitWithSdlError();
   }
 
   auto renderer {SDL_CreateRenderer(window, -1, 0)};
 
+  if (renderer == nullptr) {
+    return exitWithSdlError();
+  }
+
   while (true) {
     SDL_Event event {};
-    SDL_WaitEvent(&event);
+    int success {SDL_WaitEvent(&event)};
+    if (success == 0) {
+      return exitWithSdlError();
+    }
+
     if (handleEvent(&event)) {
       break;
     }
-    SDL_RenderClear(renderer);
+    success = SDL_RenderClear(renderer);
+    if (success != 0) {
+      return exitWithSdlError();
+    }
+
     SDL_RenderPresent(renderer);
   }
 
@@ -57,11 +69,13 @@ bool handleEvent(SDL_Event *event) {
     std::cout << "SDL_QUIT\n";
     should_quit = true;
   } break;
+
   case SDL_WINDOWEVENT: {
     switch (event->window.event) {
     case SDL_WINDOWEVENT_RESIZED: {
       std::cout << "SDL_WINDOWEVENT_RESIZED ( " << event->window.data1 << "," << event->window.data2 << ")\n";
     } break;
+
     case SDL_WINDOWEVENT_EXPOSED: {
       auto window {SDL_GetWindowFromID(event->window.windowID)};
       auto renderer {SDL_GetRenderer(window)};
