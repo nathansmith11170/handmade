@@ -21,7 +21,7 @@ another, there is a contract for a transport corporation to move those goods.
 
 ## Mercenary Career
 
-The player can choose to join or own a mercenary corpoation instead of an
+The player can choose to join or own a mercenary corporation instead of an
 industrial one.
 
 ## NPC corporations
