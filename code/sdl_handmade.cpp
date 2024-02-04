@@ -20,6 +20,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <chrono>
 #include <iostream>
 #include <sstream>
+#include <vector>
 
 #define internal static
 #define local_persist static
@@ -29,8 +30,8 @@ global_variable bool Running {true};
 global_variable SDL_Texture *Texture {};
 global_variable int BitmapWidth {};
 global_variable int BitmapHeight {};
-global_variable uint8_t *BitmapMemory {};
-global_variable size_t BytesPerPixel {};
+global_variable std::vector<uint8_t> BitmapMemory {};
+global_variable int BytesPerPixel {4};
 global_variable long CountedFrames {};
 global_variable std::chrono::steady_clock::time_point StartTime {};
 global_variable TTF_Font *Sans {};
@@ -60,8 +61,8 @@ internal SDL_Texture *getFPSTexture(SDL_Renderer *renderer, SDL_Rect *message_re
     SDL_DestroyTexture(FpsMessageTexture);
   }
 
-  float fs = std::chrono::duration<float> {std::chrono::steady_clock::now() - StartTime}.count();
-  float avg_fps {static_cast<float>(CountedFrames) / fs};
+  float float_seconds = std::chrono::duration<float> {std::chrono::steady_clock::now() - StartTime}.count();
+  float avg_fps {static_cast<float>(CountedFrames) / float_seconds};
 
   FpsText.str("");
   FpsText << "FPS: " << avg_fps;
@@ -88,18 +89,22 @@ internal void SDLResizeTexture(SDL_Renderer *renderer, int width, int height) {
   if (Texture != nullptr) {
     SDL_DestroyTexture(Texture);
   }
-  if (BitmapMemory != nullptr) {
-    delete BitmapMemory;
-  }
+  BitmapMemory.clear();
+
   Texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, width, height);
   BitmapWidth = width;
   BitmapHeight = height;
-  BitmapMemory = new uint8_t[width * height * BytesPerPixel];
+  BitmapMemory.reserve(width * height * BytesPerPixel);
+  std::cout << "Allocated bitmap size: " << BitmapMemory.size() * sizeof(uint8_t) << '\n';
 }
 
 internal void SDLUpdateWindow(SDL_Window *window, SDL_Renderer *renderer) {
+  uint8_t *texture_data = NULL;
+  int texture_pitch = 0;
 
-  SDL_UpdateTexture(Texture, 0, BitmapMemory, BitmapWidth * BytesPerPixel);
+  SDL_LockTexture(Texture, 0, (void **)&texture_data, &texture_pitch);
+  memcpy(texture_data, BitmapMemory.data(), BitmapWidth * BitmapHeight * BytesPerPixel);
+  SDL_UnlockTexture(Texture);
 
   SDL_RenderCopy(renderer, Texture, NULL, NULL);
 
@@ -113,9 +118,26 @@ internal void SDLUpdateWindow(SDL_Window *window, SDL_Renderer *renderer) {
   SDL_RenderPresent(renderer);
 }
 
-void handleEvent(SDL_Event *event) {
-  bool should_quit {false};
+internal void renderWeirdGradient(int x_offset, int y_offset) {
+  int pitch = BitmapWidth * BytesPerPixel;
 
+  int row_start = 0;
+  for (int y {0}; y < BitmapHeight; ++y) {
+    for (int x {0}; x < BitmapWidth; ++x) {
+      BitmapMemory[row_start + BytesPerPixel * x + 0] = (uint8_t)(x + x_offset);
+
+      BitmapMemory[row_start + BytesPerPixel * x + 1] = (uint8_t)(y);
+
+      BitmapMemory[row_start + BytesPerPixel * x + 2] = 0;
+
+      BitmapMemory[row_start + BytesPerPixel * x + 3] = 0;
+    }
+
+    row_start += pitch;
+  }
+}
+
+void handleEvent(SDL_Event *event) {
   switch (event->type) {
   case SDL_QUIT: {
     std::cout << "SDL_QUIT\n";
@@ -186,6 +208,8 @@ int main() {
 
   int width {};
   int height {};
+  int x_offset {0};
+  int y_offset {0};
   SDL_GetWindowSize(window, &width, &height);
   SDLResizeTexture(renderer, width, height);
   while (Running) {
@@ -193,8 +217,11 @@ int main() {
     while (SDL_PollEvent(&event)) {
       handleEvent(&event);
     }
-    // RenderWeirdGradient(XOffset, YOffset);
+    renderWeirdGradient(x_offset, y_offset);
     SDLUpdateWindow(window, renderer);
+
+    ++x_offset;
+    y_offset += 2;
     ++CountedFrames;
   }
 
