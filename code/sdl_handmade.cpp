@@ -78,13 +78,34 @@ bool handleEvent(SDL_Event *event) {
 
     case SDL_WINDOWEVENT_EXPOSED: {
       auto window {SDL_GetWindowFromID(event->window.windowID)};
+      if (window == nullptr) {
+        exitWithSdlError();
+        return true;
+      }
+
       auto renderer {SDL_GetRenderer(window)};
+      if (renderer == nullptr) {
+        exitWithSdlError();
+        return true;
+      }
+
       static bool is_white {true};
+      int success {};
       if (is_white == true) {
-        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+        success = SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+        if (success < 0) {
+          exitWithSdlError();
+          return true;
+        }
+
         is_white = false;
       } else {
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        success = SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        if (success < 0) {
+          exitWithSdlError();
+          return true;
+        }
+
         is_white = true;
       }
     } break;
@@ -92,7 +113,7 @@ bool handleEvent(SDL_Event *event) {
   } break;
   }
 
-  return (should_quit);
+  return should_quit;
 }
 
 int exitWithSdlError() {
