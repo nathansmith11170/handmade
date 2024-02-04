@@ -24,18 +24,31 @@ int main(int argc, char *argv[]) {
   int call_code {SDL_InitSubSystem(SDL_INIT_VIDEO)};
   if (call_code != 0) {
     const char *err {SDL_GetError()};
-    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Error", err, 0);
+    std::cerr << err << '\n';
+    SDL_Quit();
+    return 1;
   }
 
-  auto window =
-      SDL_CreateWindow("Handmade", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 640, 480, SDL_WINDOW_RESIZABLE);
+  auto window {
+      SDL_CreateWindow("Handmade", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 640, 480, SDL_WINDOW_RESIZABLE)};
+
+  if (!window) {
+    const char *err {SDL_GetError()};
+    std::cerr << err << '\n';
+    SDL_Quit();
+    return 1;
+  }
+
+  auto renderer {SDL_CreateRenderer(window, -1, 0)};
 
   while (true) {
-    SDL_Event Event {};
-    SDL_WaitEvent(&Event);
-    if (HandleEvent(&Event)) {
+    SDL_Event event {};
+    SDL_WaitEvent(&event);
+    if (HandleEvent(&event)) {
       break;
     }
+    SDL_RenderClear(renderer);
+    SDL_RenderPresent(renderer);
   }
 
   SDL_Quit();
@@ -53,6 +66,18 @@ bool HandleEvent(SDL_Event *event) {
     switch (event->window.event) {
     case SDL_WINDOWEVENT_RESIZED: {
       std::cout << "SDL_WINDOWEVENT_RESIZED ( " << event->window.data1 << "," << event->window.data2 << ")\n";
+    } break;
+    case SDL_WINDOWEVENT_EXPOSED: {
+      auto window {SDL_GetWindowFromID(event->window.windowID)};
+      auto renderer {SDL_GetRenderer(window)};
+      static bool IsWhite = true;
+      if (IsWhite == true) {
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+        IsWhite = false;
+      } else {
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        IsWhite = true;
+      }
     } break;
     }
   } break;
