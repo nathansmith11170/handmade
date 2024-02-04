@@ -19,32 +19,36 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <iostream>
 
 bool handleEvent(SDL_Event *Event);
-int exitWithSdlError();
+void outputSDLErrorAndQuit();
 
 int main(int argc, char *argv[]) {
-  int call_code {SDL_InitSubSystem(SDL_INIT_VIDEO)};
+  int call_code {SDL_Init(SDL_INIT_VIDEO)};
   if (call_code < 0) {
-    return exitWithSdlError();
+    outputSDLErrorAndQuit();
+    return 1;
   }
 
   auto window {
       SDL_CreateWindow("Handmade", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 640, 480, SDL_WINDOW_RESIZABLE)};
 
   if (window == nullptr) {
-    return exitWithSdlError();
+    outputSDLErrorAndQuit();
+    return 1;
   }
 
   auto renderer {SDL_CreateRenderer(window, -1, 0)};
 
   if (renderer == nullptr) {
-    return exitWithSdlError();
+    outputSDLErrorAndQuit();
+    return 1;
   }
 
   while (true) {
     SDL_Event event {};
     int success {SDL_WaitEvent(&event)};
     if (success == 0) {
-      return exitWithSdlError();
+      outputSDLErrorAndQuit();
+      return 1;
     }
 
     if (handleEvent(&event)) {
@@ -52,7 +56,8 @@ int main(int argc, char *argv[]) {
     }
     success = SDL_RenderClear(renderer);
     if (success < 0) {
-      return exitWithSdlError();
+      outputSDLErrorAndQuit();
+      return 1;
     }
 
     SDL_RenderPresent(renderer);
@@ -79,13 +84,13 @@ bool handleEvent(SDL_Event *event) {
     case SDL_WINDOWEVENT_EXPOSED: {
       auto window {SDL_GetWindowFromID(event->window.windowID)};
       if (window == nullptr) {
-        exitWithSdlError();
+        outputSDLErrorAndQuit();
         return true;
       }
 
       auto renderer {SDL_GetRenderer(window)};
       if (renderer == nullptr) {
-        exitWithSdlError();
+        outputSDLErrorAndQuit();
         return true;
       }
 
@@ -94,7 +99,7 @@ bool handleEvent(SDL_Event *event) {
       if (is_white == true) {
         success = SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
         if (success < 0) {
-          exitWithSdlError();
+          outputSDLErrorAndQuit();
           return true;
         }
 
@@ -102,7 +107,7 @@ bool handleEvent(SDL_Event *event) {
       } else {
         success = SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         if (success < 0) {
-          exitWithSdlError();
+          outputSDLErrorAndQuit();
           return true;
         }
 
@@ -116,9 +121,8 @@ bool handleEvent(SDL_Event *event) {
   return should_quit;
 }
 
-int exitWithSdlError() {
+void outputSDLErrorAndQuit() {
   const char *err {SDL_GetError()};
   std::cerr << err << '\n';
   SDL_Quit();
-  return 1;
 }
