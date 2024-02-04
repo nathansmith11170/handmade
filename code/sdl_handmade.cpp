@@ -103,13 +103,8 @@ int main() {
     SDL_RenderCopy(renderer, message_texture, NULL, &fps_rect);
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderPresent(renderer);
-    SDL_FreeSurface(message_surface);
-    SDL_DestroyTexture(message_texture);
     ++counted_frames;
   }
-
-  SDL_Quit();
-  TTF_Quit();
 }
 
 bool handleEvent(SDL_Event *event) {
@@ -139,11 +134,9 @@ bool handleEvent(SDL_Event *event) {
 void outputSDLErrorAndQuit(std::string caller) {
   const char *err {SDL_GetError()};
   std::cerr << "SDL error in " << caller << ": " << err << '\n';
-  SDL_Quit();
 }
 
 void outputTTFErrorAndQuit(std::string caller) {
   const char *err {TTF_GetError()};
   std::cerr << "TTF error in " << caller << ": " << err << '\n';
-  TTF_Quit();
 }
