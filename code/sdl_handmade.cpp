@@ -21,9 +21,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <iostream>
 #include <sstream>
 
+static bool running {true};
 bool handleEvent(SDL_Event *Event);
 void outputSDLErrorAndQuit(std::string caller);
 void outputTTFErrorAndQuit(std::string caller);
+SDL_Texture *getFPSAsTexture(std::chrono::steady_clock::time_point start, long counted_frames,
+                             std::stringstream *time_text, SDL_Renderer *renderer, TTF_Font *font,
+                             SDL_Color *text_color, SDL_Rect *message_rect);
 
 int main() {
   int call_code {SDL_Init(SDL_INIT_VIDEO)};
@@ -66,33 +70,12 @@ int main() {
 
   // Start counting frames per second
   long counted_frames = 0;
-  auto fps_timer {std::chrono::high_resolution_clock::now()};
-  bool running {true};
+  auto fps_timer {std::chrono::steady_clock::now()};
+  SDL_Texture *message_texture {};
   while (running) {
     SDL_Event event {};
     while (SDL_PollEvent(&event)) {
-      if (handleEvent(&event)) {
-        running = false;
-      }
-    }
-
-    float fs = std::chrono::duration<float> {std::chrono::high_resolution_clock::now() - fps_timer}.count();
-    float avg_fps {counted_frames / fs};
-
-    time_text.str("");
-    time_text << "FPS: " << avg_fps;
-
-    SDL_Surface *message_surface {TTF_RenderText_Solid(Sans, time_text.str().c_str(), White)};
-    if (message_surface == nullptr) {
-      outputTTFErrorAndQuit("TTF_RenderText_Solid");
-      return 1;
-    }
-    fps_rect.w = message_surface->w;
-    fps_rect.h = message_surface->h;
-    SDL_Texture *message_texture {SDL_CreateTextureFromSurface(renderer, message_surface)};
-    if (message_texture == nullptr) {
-      outputSDLErrorAndQuit("SDL_CreateTextureFromSurface");
-      return 1;
+      handleEvent(&event);
     }
 
     int success {SDL_RenderClear(renderer)};
@@ -100,11 +83,22 @@ int main() {
       outputSDLErrorAndQuit("SDL_RenderClear");
       return 1;
     }
-    SDL_RenderCopy(renderer, message_texture, NULL, &fps_rect);
+
+    if (message_texture != nullptr) {
+      SDL_DestroyTexture(message_texture);
+    }
+    message_texture = getFPSAsTexture(fps_timer, counted_frames, &time_text, renderer, Sans, &White, &fps_rect);
+    if (message_texture != nullptr) {
+      SDL_RenderCopy(renderer, message_texture, NULL, &fps_rect);
+    }
+
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderPresent(renderer);
+
     ++counted_frames;
   }
+
+  return 0;
 }
 
 bool handleEvent(SDL_Event *event) {
@@ -113,7 +107,7 @@ bool handleEvent(SDL_Event *event) {
   switch (event->type) {
   case SDL_QUIT: {
     std::cout << "SDL_QUIT\n";
-    should_quit = true;
+    running = false;
   } break;
 
   case SDL_WINDOWEVENT: {
@@ -139,4 +133,31 @@ void outputSDLErrorAndQuit(std::string caller) {
 void outputTTFErrorAndQuit(std::string caller) {
   const char *err {TTF_GetError()};
   std::cerr << "TTF error in " << caller << ": " << err << '\n';
+}
+
+SDL_Texture *getFPSAsTexture(std::chrono::steady_clock::time_point start, long counted_frames,
+                             std::stringstream *time_text, SDL_Renderer *renderer, TTF_Font *font,
+                             SDL_Color *text_color, SDL_Rect *message_rect) {
+  float fs = std::chrono::duration<float> {std::chrono::steady_clock::now() - start}.count();
+  float avg_fps {static_cast<float>(counted_frames) / fs};
+
+  time_text->str("");
+  *time_text << "FPS: " << avg_fps;
+
+  SDL_Surface *message_surface {TTF_RenderText_Solid(font, time_text->str().c_str(), *text_color)};
+  if (message_surface == nullptr) {
+    outputTTFErrorAndQuit("TTF_RenderText_Solid");
+    return nullptr;
+  }
+
+  message_rect->w = message_surface->w;
+  message_rect->h = message_surface->h;
+
+  auto result = SDL_CreateTextureFromSurface(renderer, message_surface);
+  if (result == nullptr) {
+    outputSDLErrorAndQuit("SDL_CreateTextureFromSurface");
+    return nullptr;
+  }
+  SDL_FreeSurface(message_surface);
+  return result;
 }
