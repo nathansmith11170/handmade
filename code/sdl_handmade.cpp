@@ -27,17 +27,22 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #define global_variable static
 
 global_variable bool Running {true};
-global_variable SDL_Texture *Texture {};
-global_variable int BitmapWidth {};
-global_variable int BitmapHeight {};
-global_variable std::vector<uint8_t> BitmapMemory {};
-global_variable int BytesPerPixel {4};
 global_variable long CountedFrames {};
 global_variable std::chrono::steady_clock::time_point StartTime {};
 global_variable TTF_Font *Sans {};
 global_variable std::stringstream FpsText {};
 global_variable SDL_Color White {255, 255, 255, 255};
 global_variable SDL_Texture *FpsMessageTexture {};
+
+struct sdl_offscreen_buffer {
+  SDL_Texture *Texture;
+  std::vector<uint8_t> Memory;
+  int Width;
+  int Height;
+  int BytesPerPixel;
+};
+
+global_variable sdl_offscreen_buffer GlobalBackbuffer;
 
 void handleEvent(SDL_Event *event);
 internal void outputSDLError(std::string caller);
@@ -86,27 +91,29 @@ internal SDL_Texture *getFPSTexture(SDL_Renderer *renderer, SDL_Rect *message_re
 }
 
 internal void SDLResizeTexture(SDL_Renderer *renderer, int width, int height) {
-  if (Texture != nullptr) {
-    SDL_DestroyTexture(Texture);
+  if (GlobalBackbuffer.Texture != nullptr) {
+    SDL_DestroyTexture(GlobalBackbuffer.Texture);
   }
-  BitmapMemory.clear();
+  GlobalBackbuffer.Memory.clear();
 
-  Texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, width, height);
-  BitmapWidth = width;
-  BitmapHeight = height;
-  BitmapMemory.reserve(width * height * BytesPerPixel);
-  std::cout << "Allocated bitmap size: " << BitmapMemory.size() * sizeof(uint8_t) << '\n';
+  GlobalBackbuffer.Texture =
+      SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, width, height);
+  GlobalBackbuffer.Width = width;
+  GlobalBackbuffer.Height = height;
+  GlobalBackbuffer.Memory.reserve(width * height * GlobalBackbuffer.BytesPerPixel);
+  std::cout << "Allocated bitmap size: " << GlobalBackbuffer.Memory.size() * sizeof(uint8_t) << '\n';
 }
 
 internal void SDLUpdateWindow(SDL_Window *window, SDL_Renderer *renderer) {
   uint8_t *texture_data = NULL;
   int texture_pitch = 0;
 
-  SDL_LockTexture(Texture, 0, (void **)&texture_data, &texture_pitch);
-  memcpy(texture_data, BitmapMemory.data(), BitmapWidth * BitmapHeight * BytesPerPixel);
-  SDL_UnlockTexture(Texture);
+  SDL_LockTexture(GlobalBackbuffer.Texture, 0, (void **)&texture_data, &texture_pitch);
+  memcpy(texture_data, GlobalBackbuffer.Memory.data(),
+         GlobalBackbuffer.Width * GlobalBackbuffer.Height * GlobalBackbuffer.BytesPerPixel);
+  SDL_UnlockTexture(GlobalBackbuffer.Texture);
 
-  SDL_RenderCopy(renderer, Texture, NULL, NULL);
+  SDL_RenderCopy(renderer, GlobalBackbuffer.Texture, NULL, NULL);
 
   SDL_Rect fps_rect;
   fps_rect.x = 0;
@@ -119,18 +126,18 @@ internal void SDLUpdateWindow(SDL_Window *window, SDL_Renderer *renderer) {
 }
 
 internal void renderWeirdGradient(int x_offset, int y_offset) {
-  int pitch = BitmapWidth * BytesPerPixel;
+  int pitch = GlobalBackbuffer.Width * GlobalBackbuffer.BytesPerPixel;
 
   int row_start = 0;
-  for (int y {0}; y < BitmapHeight; ++y) {
-    for (int x {0}; x < BitmapWidth; ++x) {
-      BitmapMemory[row_start + BytesPerPixel * x + 0] = (uint8_t)(x + x_offset);
+  for (int y {0}; y < GlobalBackbuffer.Height; ++y) {
+    for (int x {0}; x < GlobalBackbuffer.Width; ++x) {
+      GlobalBackbuffer.Memory[row_start + GlobalBackbuffer.BytesPerPixel * x + 0] = (uint8_t)(x + x_offset);
 
-      BitmapMemory[row_start + BytesPerPixel * x + 1] = (uint8_t)(y);
+      GlobalBackbuffer.Memory[row_start + GlobalBackbuffer.BytesPerPixel * x + 1] = (uint8_t)(y + y_offset);
 
-      BitmapMemory[row_start + BytesPerPixel * x + 2] = 0;
+      GlobalBackbuffer.Memory[row_start + GlobalBackbuffer.BytesPerPixel * x + 2] = 0;
 
-      BitmapMemory[row_start + BytesPerPixel * x + 3] = 0;
+      GlobalBackbuffer.Memory[row_start + GlobalBackbuffer.BytesPerPixel * x + 3] = 0;
     }
 
     row_start += pitch;
@@ -205,6 +212,8 @@ int main() {
   // Start counting frames per second
   CountedFrames = 0;
   StartTime = std::chrono::steady_clock::now();
+
+  GlobalBackbuffer.BytesPerPixel = 4;
 
   int width {};
   int height {};
