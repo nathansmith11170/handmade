@@ -70,13 +70,13 @@ bool HandleEvent(SDL_Event *event) {
     case SDL_WINDOWEVENT_EXPOSED: {
       auto window {SDL_GetWindowFromID(event->window.windowID)};
       auto renderer {SDL_GetRenderer(window)};
-      static bool IsWhite = true;
-      if (IsWhite == true) {
+      static bool is_white {true};
+      if (is_white == true) {
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-        IsWhite = false;
+        is_white = false;
       } else {
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-        IsWhite = true;
+        is_white = true;
       }
     } break;
     }
