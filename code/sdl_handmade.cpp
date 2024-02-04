@@ -18,25 +18,20 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <SDL.h>
 #include <iostream>
 
-bool HandleEvent(SDL_Event *Event);
+bool handleEvent(SDL_Event *Event);
+int exitWithSdlError();
 
 int main(int argc, char *argv[]) {
   int call_code {SDL_InitSubSystem(SDL_INIT_VIDEO)};
   if (call_code != 0) {
-    const char *err {SDL_GetError()};
-    std::cerr << err << '\n';
-    SDL_Quit();
-    return 1;
+    return exitWithSdlError();
   }
 
   auto window {
       SDL_CreateWindow("Handmade", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 640, 480, SDL_WINDOW_RESIZABLE)};
 
   if (!window) {
-    const char *err {SDL_GetError()};
-    std::cerr << err << '\n';
-    SDL_Quit();
-    return 1;
+    return exitWithSdlError();
   }
 
   auto renderer {SDL_CreateRenderer(window, -1, 0)};
@@ -44,7 +39,7 @@ int main(int argc, char *argv[]) {
   while (true) {
     SDL_Event event {};
     SDL_WaitEvent(&event);
-    if (HandleEvent(&event)) {
+    if (handleEvent(&event)) {
       break;
     }
     SDL_RenderClear(renderer);
@@ -54,7 +49,7 @@ int main(int argc, char *argv[]) {
   SDL_Quit();
 }
 
-bool HandleEvent(SDL_Event *event) {
+bool handleEvent(SDL_Event *event) {
   bool should_quit = false;
 
   switch (event->type) {
@@ -84,4 +79,11 @@ bool HandleEvent(SDL_Event *event) {
   }
 
   return (should_quit);
+}
+
+int exitWithSdlError() {
+  const char *err {SDL_GetError()};
+  std::cerr << err << '\n';
+  SDL_Quit();
+  return 1;
 }
