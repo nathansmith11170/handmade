@@ -23,7 +23,7 @@ int exitWithSdlError();
 
 int main(int argc, char *argv[]) {
   int call_code {SDL_InitSubSystem(SDL_INIT_VIDEO)};
-  if (call_code != 0) {
+  if (call_code < 0) {
     return exitWithSdlError();
   }
 
@@ -51,7 +51,7 @@ int main(int argc, char *argv[]) {
       break;
     }
     success = SDL_RenderClear(renderer);
-    if (success != 0) {
+    if (success < 0) {
       return exitWithSdlError();
     }
 
