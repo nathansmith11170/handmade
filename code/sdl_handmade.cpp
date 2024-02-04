@@ -29,6 +29,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 global_variable bool Running {true};
 global_variable long CountedFrames {};
 global_variable std::chrono::steady_clock::time_point StartTime {};
+global_variable const int BytesPerPixel {4};
+
 global_variable TTF_Font *Sans {};
 global_variable std::stringstream FpsText {};
 global_variable SDL_Color White {255, 255, 255, 255};
@@ -39,17 +41,31 @@ struct sdl_offscreen_buffer {
   std::vector<uint8_t> Memory;
   int Width;
   int Height;
-  int BytesPerPixel;
+  int Pitch;
+  // 32bit pixels in BGRX order
 };
 
 global_variable sdl_offscreen_buffer GlobalBackbuffer;
+
+struct sdl_window_dimension {
+  int Width;
+  int Height;
+};
 
 void handleEvent(SDL_Event *event);
 internal void outputSDLError(std::string caller);
 internal void outputTTFError(std::string caller);
 internal SDL_Texture *getFPSTexture(SDL_Renderer *renderer, SDL_Rect *message_rect);
 internal void SDLResizeTexture(SDL_Renderer *renderer, int width, int height);
-internal void SDLUpdateWindow(SDL_Window *Window, SDL_Renderer *Renderer);
+internal void SDLUpdateWindow(SDL_Renderer *Renderer);
+
+sdl_window_dimension SDLGetWindowDimension(SDL_Window *window) {
+  sdl_window_dimension result {};
+
+  SDL_GetWindowSize(window, &result.Width, &result.Height);
+
+  return result;
+}
 
 internal void outputSDLError(std::string caller) {
   const char *err {SDL_GetError()};
@@ -100,17 +116,17 @@ internal void SDLResizeTexture(SDL_Renderer *renderer, int width, int height) {
       SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, width, height);
   GlobalBackbuffer.Width = width;
   GlobalBackbuffer.Height = height;
-  GlobalBackbuffer.Memory.reserve(width * height * GlobalBackbuffer.BytesPerPixel);
-  std::cout << "Allocated bitmap size: " << GlobalBackbuffer.Memory.size() * sizeof(uint8_t) << '\n';
+  GlobalBackbuffer.Pitch = width * BytesPerPixel;
+  GlobalBackbuffer.Memory.reserve(static_cast<long unsigned int>(width * height) * BytesPerPixel);
+  std::cout << "Allocated bitmap size: " << GlobalBackbuffer.Memory.capacity() * sizeof(uint8_t) << '\n';
 }
 
-internal void SDLUpdateWindow(SDL_Window *window, SDL_Renderer *renderer) {
+internal void SDLUpdateWindow(SDL_Renderer *renderer) {
   uint8_t *texture_data = NULL;
   int texture_pitch = 0;
 
   SDL_LockTexture(GlobalBackbuffer.Texture, 0, (void **)&texture_data, &texture_pitch);
-  memcpy(texture_data, GlobalBackbuffer.Memory.data(),
-         GlobalBackbuffer.Width * GlobalBackbuffer.Height * GlobalBackbuffer.BytesPerPixel);
+  memcpy(texture_data, GlobalBackbuffer.Memory.data(), GlobalBackbuffer.Memory.capacity() * sizeof(uint8_t));
   SDL_UnlockTexture(GlobalBackbuffer.Texture);
 
   SDL_RenderCopy(renderer, GlobalBackbuffer.Texture, NULL, NULL);
@@ -125,22 +141,22 @@ internal void SDLUpdateWindow(SDL_Window *window, SDL_Renderer *renderer) {
   SDL_RenderPresent(renderer);
 }
 
-internal void renderWeirdGradient(int x_offset, int y_offset) {
-  int pitch = GlobalBackbuffer.Width * GlobalBackbuffer.BytesPerPixel;
-
-  int row_start = 0;
+internal void renderWeirdGradient(long unsigned int x_offset, long unsigned int y_offset) {
+  long unsigned int row_start = 0;
   for (int y {0}; y < GlobalBackbuffer.Height; ++y) {
-    for (int x {0}; x < GlobalBackbuffer.Width; ++x) {
-      GlobalBackbuffer.Memory[row_start + GlobalBackbuffer.BytesPerPixel * x + 0] = (uint8_t)(x + x_offset);
+    for (int x {0}; x < GlobalBackbuffer.Width * BytesPerPixel; x += BytesPerPixel) {
+      GlobalBackbuffer.Memory[row_start + static_cast<long unsigned int>(x) + 0] =
+          static_cast<uint8_t>(static_cast<long unsigned int>(x) + x_offset);
 
-      GlobalBackbuffer.Memory[row_start + GlobalBackbuffer.BytesPerPixel * x + 1] = (uint8_t)(y + y_offset);
+      GlobalBackbuffer.Memory[row_start + static_cast<long unsigned int>(x) + 1] =
+          static_cast<uint8_t>(static_cast<long unsigned int>(y) + y_offset);
 
-      GlobalBackbuffer.Memory[row_start + GlobalBackbuffer.BytesPerPixel * x + 2] = 0;
+      GlobalBackbuffer.Memory[row_start + static_cast<long unsigned int>(x) + 2] = 0;
 
-      GlobalBackbuffer.Memory[row_start + GlobalBackbuffer.BytesPerPixel * x + 3] = 0;
+      GlobalBackbuffer.Memory[row_start + static_cast<long unsigned int>(x) + 3] = 0;
     }
 
-    row_start += pitch;
+    row_start += GlobalBackbuffer.Pitch;
   }
 }
 
@@ -154,10 +170,6 @@ void handleEvent(SDL_Event *event) {
   case SDL_WINDOWEVENT: {
     switch (event->window.event) {
     case SDL_WINDOWEVENT_SIZE_CHANGED: {
-      int width {};
-      int height {};
-      SDL_GetWindowSize(SDL_GetWindowFromID(event->window.windowID), &width, &height);
-      SDLResizeTexture(SDL_GetRenderer(SDL_GetWindowFromID(event->window.windowID)), width, height);
       std::cout << "SDL_WINDOWEVENT_RESIZED ( " << event->window.data1 << "," << event->window.data2 << ")\n";
     } break;
 
@@ -168,7 +180,7 @@ void handleEvent(SDL_Event *event) {
     case SDL_WINDOWEVENT_EXPOSED: {
       SDL_Window *window = SDL_GetWindowFromID(event->window.windowID);
       SDL_Renderer *renderer = SDL_GetRenderer(window);
-      SDLUpdateWindow(window, renderer);
+      SDLUpdateWindow(renderer);
     } break;
     }
   } break;
@@ -213,21 +225,17 @@ int main() {
   CountedFrames = 0;
   StartTime = std::chrono::steady_clock::now();
 
-  GlobalBackbuffer.BytesPerPixel = 4;
-
-  int width {};
-  int height {};
-  int x_offset {0};
-  int y_offset {0};
-  SDL_GetWindowSize(window, &width, &height);
-  SDLResizeTexture(renderer, width, height);
+  long unsigned int x_offset {0};
+  long unsigned int y_offset {0};
+  auto window_dimensions {SDLGetWindowDimension(window)};
+  SDLResizeTexture(renderer, window_dimensions.Width, window_dimensions.Height);
   while (Running) {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
       handleEvent(&event);
     }
     renderWeirdGradient(x_offset, y_offset);
-    SDLUpdateWindow(window, renderer);
+    SDLUpdateWindow(renderer);
 
     ++x_offset;
     y_offset += 2;
