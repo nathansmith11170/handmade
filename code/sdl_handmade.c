@@ -48,7 +48,7 @@ typedef struct sdl_offscreen_buffer {
   // 32bit pixels in BGRX order
 } sdl_offscreen_buffer;
 
-sdl_offscreen_buffer *GlobalBackbuffer;
+sdl_offscreen_buffer GlobalBackbuffer;
 
 typedef struct sdl_window_dimension {
   int Width;
@@ -114,31 +114,31 @@ SDL_Texture *getFPSTexture(SDL_Renderer *renderer, SDL_Rect *message_rect) {
 }
 
 void SDLResizeTexture(SDL_Renderer *renderer, int width, int height) {
-  if (GlobalBackbuffer->Texture) {
-    SDL_DestroyTexture(GlobalBackbuffer->Texture);
+  if (GlobalBackbuffer.Texture) {
+    SDL_DestroyTexture(GlobalBackbuffer.Texture);
   }
-  if (GlobalBackbuffer->Memory) {
-    munmap(GlobalBackbuffer->Memory, (size_t)(GlobalBackbuffer->Width * GlobalBackbuffer->Height * BytesPerPixel));
+  if (GlobalBackbuffer.Memory) {
+    munmap(GlobalBackbuffer.Memory, (size_t)(GlobalBackbuffer.Width * GlobalBackbuffer.Height * BytesPerPixel));
   }
-  GlobalBackbuffer->Texture =
+  GlobalBackbuffer.Texture =
       SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, width, height);
-  GlobalBackbuffer->Width = width;
-  GlobalBackbuffer->Height = height;
-  GlobalBackbuffer->Pitch = width * BytesPerPixel;
-  GlobalBackbuffer->Memory = mmap(0, (size_t)(GlobalBackbuffer->Width * GlobalBackbuffer->Height * BytesPerPixel),
-                                  PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  GlobalBackbuffer.Width = width;
+  GlobalBackbuffer.Height = height;
+  GlobalBackbuffer.Pitch = width * BytesPerPixel;
+  GlobalBackbuffer.Memory = mmap(0, (size_t)(GlobalBackbuffer.Width * GlobalBackbuffer.Height * BytesPerPixel),
+                                 PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 }
 
 void SDLUpdateWindow(SDL_Renderer *renderer) {
   uint8_t *texture_data = NULL;
   int texture_pitch = 0;
 
-  SDL_LockTexture(GlobalBackbuffer->Texture, 0, (void **)&texture_data, &texture_pitch);
-  memcpy(texture_data, GlobalBackbuffer->Memory,
-         (size_t)(GlobalBackbuffer->Height * GlobalBackbuffer->Pitch) * sizeof(uint8_t));
-  SDL_UnlockTexture(GlobalBackbuffer->Texture);
+  SDL_LockTexture(GlobalBackbuffer.Texture, 0, (void **)&texture_data, &texture_pitch);
+  memcpy(texture_data, GlobalBackbuffer.Memory,
+         (size_t)(GlobalBackbuffer.Height * GlobalBackbuffer.Pitch) * sizeof(uint8_t));
+  SDL_UnlockTexture(GlobalBackbuffer.Texture);
 
-  SDL_RenderCopy(renderer, GlobalBackbuffer->Texture, NULL, NULL);
+  SDL_RenderCopy(renderer, GlobalBackbuffer.Texture, NULL, NULL);
 
   SDL_Rect fps_rect;
   fps_rect.x = 0;
@@ -151,10 +151,10 @@ void SDLUpdateWindow(SDL_Renderer *renderer) {
 }
 
 void renderWeirdGradient(int x_offset, int y_offset) {
-  uint8_t *row = (uint8_t *)GlobalBackbuffer->Memory;
-  for (int y = 0; y < GlobalBackbuffer->Height; ++y) {
+  uint8_t *row = (uint8_t *)GlobalBackbuffer.Memory;
+  for (int y = 0; y < GlobalBackbuffer.Height; ++y) {
     uint8_t *pixel = (uint8_t *)row;
-    for (int x = 0; x < GlobalBackbuffer->Width; ++x) {
+    for (int x = 0; x < GlobalBackbuffer.Width; ++x) {
       *pixel = (uint8_t)(x + x_offset);
       ++pixel;
 
@@ -168,7 +168,7 @@ void renderWeirdGradient(int x_offset, int y_offset) {
       ++pixel;
     }
 
-    row += GlobalBackbuffer->Pitch;
+    row += GlobalBackbuffer.Pitch;
   }
 }
 
@@ -246,12 +246,11 @@ int main() {
     return 1;
   }
 
-  GlobalBackbuffer = (sdl_offscreen_buffer *)malloc(sizeof(sdl_offscreen_buffer));
-  GlobalBackbuffer->Texture = NULL;
-  GlobalBackbuffer->Memory = NULL;
-  GlobalBackbuffer->Height = 0;
-  GlobalBackbuffer->Width = 0;
-  GlobalBackbuffer->Pitch = 0;
+  GlobalBackbuffer.Texture = NULL;
+  GlobalBackbuffer.Memory = NULL;
+  GlobalBackbuffer.Height = 0;
+  GlobalBackbuffer.Width = 0;
+  GlobalBackbuffer.Pitch = 0;
 
   // Start counting frames per second
   CountedFrames = 0;
