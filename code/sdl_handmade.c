@@ -26,9 +26,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #define MAP_ANONYMOUS MAP_ANON
 #endif
 
-#define true 1
-#define false 0
-
 bool Running = true;
 uint64_t CountedFrames = 0;
 uint64_t LastTime;
@@ -249,7 +246,7 @@ int main() {
     return 1;
   }
 
-  auto window =
+  struct SDL_Window *window =
       SDL_CreateWindow("Handmade", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1028, 720, SDL_WINDOW_RESIZABLE);
   if (!window) {
     outputSDLError("SDL_CreateWindow");
@@ -258,7 +255,7 @@ int main() {
 
   SDLInitSoundDevice(800, 128);
 
-  auto renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+  struct SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, 0);
   if (!renderer) {
     outputSDLError("SDL_CreateRenderer");
     return 1;
@@ -282,7 +279,7 @@ int main() {
 
   int x_offset = 0;
   int y_offset = 0;
-  auto window_dimensions = SDLGetWindowDimension(window);
+  sdl_window_dimension window_dimensions = SDLGetWindowDimension(window);
   SDLResizeTexture(renderer, window_dimensions.Width, window_dimensions.Height);
   SDL_PauseAudio(0);
   while (Running) {
