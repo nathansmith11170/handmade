@@ -30,10 +30,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #define false 0
 
 bool Running = true;
-long CountedFrames = 0;
-clock_t StartTime;
+uint64_t CountedFrames = 0;
+uint64_t LastTime;
 int BytesPerPixel = 4;
 
+uint64_t fps = 0;
 TTF_Font *Sans;
 void *FpsText = NULL;
 SDL_Color White = {255, 255, 255, 255};
@@ -49,26 +50,22 @@ typedef struct sdl_offscreen_buffer {
 } sdl_offscreen_buffer;
 
 sdl_offscreen_buffer GlobalBackbuffer;
+SDL_AudioSpec AudioSettings = {0};
 
 typedef struct sdl_window_dimension {
   int Width;
   int Height;
 } sdl_window_dimension;
 
-void handleEvent(SDL_Event *event, int *y_offset);
 void outputSDLError(const char *caller);
 void outputTTFError(const char *caller);
+sdl_window_dimension SDLGetWindowDimension(SDL_Window *window);
+void SDLAudioCallback(void *user_data, Uint8 *audio_data, int length);
+void SDLInitSoundDevice(int samples_per_second, uint16_t buffer_size);
 struct SDL_Texture *getFPSTexture(SDL_Renderer *renderer, SDL_Rect *message_rect);
 void SDLResizeTexture(SDL_Renderer *renderer, int width, int height);
 void SDLUpdateWindow(SDL_Renderer *Renderer);
-
-sdl_window_dimension SDLGetWindowDimension(SDL_Window *window) {
-  sdl_window_dimension result;
-
-  SDL_GetWindowSize(window, &result.Width, &result.Height);
-
-  return result;
-}
+void handleEvent(SDL_Event *event, int *y_offset);
 
 void outputSDLError(const char *caller) {
   const char *err = SDL_GetError();
@@ -80,6 +77,33 @@ void outputTTFError(const char *caller) {
   printf("TTF error in %s: %s\n", caller, err);
 }
 
+sdl_window_dimension SDLGetWindowDimension(SDL_Window *window) {
+  sdl_window_dimension result;
+
+  SDL_GetWindowSize(window, &result.Width, &result.Height);
+
+  return result;
+}
+
+void SDLAudioCallback(void *user_data, Uint8 *audio_data, int length) {
+  // Clear our audio buffer to silence.
+  memset(audio_data, 0, (size_t)length);
+}
+
+void SDLInitSoundDevice(int samples_per_second, uint16_t buffer_size) {
+  AudioSettings.freq = samples_per_second;
+  AudioSettings.format = AUDIO_S16LSB;
+  AudioSettings.channels = 2;
+  AudioSettings.samples = buffer_size;
+  AudioSettings.callback = &SDLAudioCallback;
+
+  SDL_OpenAudio(&AudioSettings, NULL);
+
+  if (AudioSettings.format != AUDIO_S16LSB) {
+    // TODO: Complain if we can't get an S16LSB buffer.
+  }
+}
+
 SDL_Texture *getFPSTexture(SDL_Renderer *renderer, SDL_Rect *message_rect) {
   if (FpsMessageTexture) {
     SDL_DestroyTexture(FpsMessageTexture);
@@ -88,12 +112,9 @@ SDL_Texture *getFPSTexture(SDL_Renderer *renderer, SDL_Rect *message_rect) {
     free(FpsText);
   }
 
-  double float_seconds = (double)clock() / CLOCKS_PER_SEC - (double)StartTime;
-  double avg_fps = (double)CountedFrames / float_seconds;
-
-  size_t size = (size_t)snprintf(NULL, 0, "FPS: %.0f", avg_fps);
+  size_t size = (size_t)snprintf(NULL, 0, "FPS: %lu", fps);
   FpsText = (char *)malloc(size + 1);
-  snprintf((char *)(FpsText), size + 1, "FPS: %.0f", avg_fps);
+  snprintf((char *)(FpsText), size + 1, "FPS: %lu", fps);
 
   SDL_Surface *message_surface = TTF_RenderText_Solid(Sans, FpsText, White);
   if (!message_surface) {
@@ -147,6 +168,7 @@ void SDLUpdateWindow(SDL_Renderer *renderer) {
   if (FpsMessageTexture) {
     SDL_RenderCopy(renderer, FpsMessageTexture, NULL, &fps_rect);
   }
+
   SDL_RenderPresent(renderer);
 }
 
@@ -215,7 +237,7 @@ void handleEvent(SDL_Event *event, int *y_offset) {
 }
 
 int main() {
-  int result_code = SDL_Init(SDL_INIT_VIDEO);
+  int result_code = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
   if (result_code < 0) {
     outputSDLError("SDL_Init");
     return 1;
@@ -234,7 +256,9 @@ int main() {
     return 1;
   }
 
-  auto renderer = SDL_CreateRenderer(window, -1, 0);
+  SDLInitSoundDevice(800, 128);
+
+  auto renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
   if (!renderer) {
     outputSDLError("SDL_CreateRenderer");
     return 1;
@@ -254,13 +278,22 @@ int main() {
 
   // Start counting frames per second
   CountedFrames = 0;
-  StartTime = clock() / CLOCKS_PER_SEC;
+  LastTime = SDL_GetTicks64();
 
   int x_offset = 0;
   int y_offset = 0;
   auto window_dimensions = SDLGetWindowDimension(window);
   SDLResizeTexture(renderer, window_dimensions.Width, window_dimensions.Height);
+  SDL_PauseAudio(0);
   while (Running) {
+    uint64_t current_time = SDL_GetTicks64();
+    if (current_time - LastTime >= 1000) {
+      // Calculate frames per second
+      fps = CountedFrames;
+      CountedFrames = 0;
+      LastTime = current_time;
+    }
+
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
       handleEvent(&event, &y_offset);
@@ -272,5 +305,6 @@ int main() {
     ++CountedFrames;
   }
 
+  SDL_Quit();
   return 0;
 }
