@@ -5,13 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         {
-        "name": "C Launch Handmade",
-        "type": "lldb",
-        "request": "launch",
-        "program": "${workspaceFolder}/build/handmade",
-        "args": [],
-        "cwd": "${workspaceFolder}",
-        "preLaunchTask": "run build.sh"
+            "name": "C Launch Handmade",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/handmade",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "run build.sh"
         }
     ]
 }

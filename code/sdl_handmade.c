@@ -15,192 +15,217 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+#include "SDL_audio.h"
+#include "SDL_video.h"
 #include <SDL.h>
 #include <SDL_ttf.h>
+#include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
+#include <string.h>
 #include <sys/mman.h>
-#include <time.h>
 
 #ifndef MAP_ANONYMOUS
 #define MAP_ANONYMOUS MAP_ANON
 #endif
 
-bool Running = true;
-uint64_t CountedFrames = 0;
-uint64_t LastTime;
-int BytesPerPixel = 4;
+typedef int8_t i8;
+typedef int16_t i16;
+typedef int32_t i32;
+typedef int64_t i64;
 
-uint64_t fps = 0;
+typedef uint8_t u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
+typedef uint64_t u64;
+
+bool running;
+u64 countedFrames = 0;
+u64 lastTime;
+const int BYTES_PER_PIXEL = 4;
+
+u64 fps = 0;
 TTF_Font *Sans;
-void *FpsText = NULL;
+void *fpsText = NULL;
 SDL_Color White = {255, 255, 255, 255};
 struct SDL_Texture *FpsMessageTexture;
 
-typedef struct sdl_offscreen_buffer {
+typedef struct SdlOffscreenBuffer {
+  // 32bit pixels in BGRX order
   struct SDL_Texture *Texture;
   void *Memory;
   int Width;
   int Height;
   int Pitch;
-  // 32bit pixels in BGRX order
-} sdl_offscreen_buffer;
+} SdlOffscreenBuffer;
 
-sdl_offscreen_buffer GlobalBackbuffer;
-SDL_AudioSpec AudioSettings = {0};
-
-typedef struct sdl_window_dimension {
+typedef struct SdlWindowDimension {
   int Width;
   int Height;
-} sdl_window_dimension;
+} SdlWindowDimension;
 
-void outputSDLError(const char *caller);
-void outputTTFError(const char *caller);
-sdl_window_dimension SDLGetWindowDimension(SDL_Window *window);
-void SDLAudioCallback(void *user_data, Uint8 *audio_data, int length);
-void SDLInitSoundDevice(int samples_per_second, uint16_t buffer_size);
-struct SDL_Texture *getFPSTexture(SDL_Renderer *renderer, SDL_Rect *message_rect);
-void SDLResizeTexture(SDL_Renderer *renderer, int width, int height);
-void SDLUpdateWindow(SDL_Renderer *Renderer);
-void handleEvent(SDL_Event *event, int *y_offset);
+typedef struct SdlAudioRingBuffer {
+  int Size;
+  int WriteCursor;
+  int PlayCursor;
+  void *Data;
+} SdlAudioRingBuffer;
 
-void outputSDLError(const char *caller) {
+SdlAudioRingBuffer AudioRingBuffer = {};
+SdlOffscreenBuffer GlobalBackbuffer = {};
+SDL_AudioSpec AudioSettings = {};
+
+void output_sdl_error(const char *caller) {
   const char *err = SDL_GetError();
   printf("SDL error in %s: %s\n", caller, err);
+  running = false;
 }
 
-void outputTTFError(const char *caller) {
+void output_ttf_error(const char *caller) {
   const char *err = TTF_GetError();
   printf("TTF error in %s: %s\n", caller, err);
 }
 
-sdl_window_dimension SDLGetWindowDimension(SDL_Window *window) {
-  sdl_window_dimension result;
+SdlWindowDimension sdl_get_window_dimension(SDL_Window *window) {
+  SdlWindowDimension result = {};
 
   SDL_GetWindowSize(window, &result.Width, &result.Height);
 
   return result;
 }
 
-void SDLAudioCallback(void *user_data, Uint8 *audio_data, int length) {
-  // Clear our audio buffer to silence.
-  memset(audio_data, 0, (size_t)length);
+void sdl_audio_callback(void *userData, u8 *audioData, int length) {
+  SdlAudioRingBuffer *ringBuffer = (SdlAudioRingBuffer *)userData;
+
+  int region1Size = length;
+  int region2Size = 0;
+  if (ringBuffer->PlayCursor + length > ringBuffer->Size) {
+    region1Size = ringBuffer->Size - ringBuffer->PlayCursor;
+    region2Size = length - region1Size;
+  }
+
+  memcpy(audioData, (u8 *)(ringBuffer->Data) + ringBuffer->PlayCursor, (size_t)(region1Size));
+  memcpy(&audioData[region1Size], ringBuffer->Data, (size_t)(region2Size));
+
+  ringBuffer->PlayCursor = (ringBuffer->PlayCursor + length) % ringBuffer->Size;
+  ringBuffer->WriteCursor = (ringBuffer->PlayCursor + 2048) % ringBuffer->Size;
 }
 
-void SDLInitSoundDevice(int samples_per_second, uint16_t buffer_size) {
-  AudioSettings.freq = samples_per_second;
+void sdl_init_sound_device(i32 samplesPerSecond, i32 bufferSize) {
+  AudioSettings.freq = samplesPerSecond;
   AudioSettings.format = AUDIO_S16LSB;
   AudioSettings.channels = 2;
-  AudioSettings.samples = buffer_size;
-  AudioSettings.callback = &SDLAudioCallback;
+  AudioSettings.samples = 1024;
+  AudioSettings.callback = &sdl_audio_callback;
+  AudioSettings.userdata = &AudioRingBuffer;
 
-  SDL_OpenAudio(&AudioSettings, NULL);
+  AudioRingBuffer.Size = bufferSize;
+  AudioRingBuffer.Data = malloc((u32)(bufferSize));
+  AudioRingBuffer.PlayCursor = AudioRingBuffer.WriteCursor = 0;
+
+  SDL_OpenAudio(&AudioSettings, nullptr);
+
+  printf("Initialised an Audio device at frequency %d Hz, %d Channels, buffer "
+         "size %d\n",
+         AudioSettings.freq, AudioSettings.channels, AudioSettings.samples);
 
   if (AudioSettings.format != AUDIO_S16LSB) {
-    // TODO: Complain if we can't get an S16LSB buffer.
+    printf("Oops! We didn't get AUDIO_S16LSB as our sample format!\n");
+    SDL_CloseAudio();
   }
 }
 
-SDL_Texture *getFPSTexture(SDL_Renderer *renderer, SDL_Rect *message_rect) {
-  if (FpsMessageTexture) {
+SDL_Texture *get_fps_texture(SDL_Renderer *renderer, SDL_Rect *messageRect) {
+  if (FpsMessageTexture != nullptr) {
     SDL_DestroyTexture(FpsMessageTexture);
   }
-  if (FpsText) {
-    free(FpsText);
+  if (fpsText != nullptr) {
+    free(fpsText);
   }
 
   size_t size = (size_t)snprintf(NULL, 0, "FPS: %lu", fps);
-  FpsText = (char *)malloc(size + 1);
-  snprintf((char *)(FpsText), size + 1, "FPS: %lu", fps);
+  fpsText = (char *)malloc(size + 1);
+  snprintf((char *)(fpsText), size + 1, "FPS: %lu", fps);
 
-  SDL_Surface *message_surface = TTF_RenderText_Solid(Sans, FpsText, White);
-  if (!message_surface) {
-    outputTTFError("TTF_RenderText_Solid");
+  SDL_Surface *messageSurface = TTF_RenderText_Solid(Sans, fpsText, White);
+  if (messageSurface == nullptr) {
+    output_ttf_error("TTF_RenderText_Solid");
     return NULL;
   }
 
-  message_rect->w = message_surface->w;
-  message_rect->h = message_surface->h;
+  messageRect->w = messageSurface->w;
+  messageRect->h = messageSurface->h;
 
-  SDL_Texture *result = SDL_CreateTextureFromSurface(renderer, message_surface);
-  if (!result) {
-    outputSDLError("SDL_CreateTextureFromSurface");
+  SDL_Texture *result = SDL_CreateTextureFromSurface(renderer, messageSurface);
+  if (result == nullptr) {
+    output_sdl_error("SDL_CreateTextureFromSurface");
     return NULL;
   }
-  SDL_FreeSurface(message_surface);
+  SDL_FreeSurface(messageSurface);
   return result;
 }
 
-void SDLResizeTexture(SDL_Renderer *renderer, int width, int height) {
+void sdl_resize_texture(SDL_Renderer *renderer, int width, int height) {
   if (GlobalBackbuffer.Texture) {
     SDL_DestroyTexture(GlobalBackbuffer.Texture);
   }
   if (GlobalBackbuffer.Memory) {
-    munmap(GlobalBackbuffer.Memory, (size_t)(GlobalBackbuffer.Width * GlobalBackbuffer.Height * BytesPerPixel));
+    munmap(GlobalBackbuffer.Memory, (size_t)(GlobalBackbuffer.Width * GlobalBackbuffer.Height * BYTES_PER_PIXEL));
   }
   GlobalBackbuffer.Texture =
       SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, width, height);
   GlobalBackbuffer.Width = width;
   GlobalBackbuffer.Height = height;
-  GlobalBackbuffer.Pitch = width * BytesPerPixel;
-  GlobalBackbuffer.Memory = mmap(0, (size_t)(GlobalBackbuffer.Width * GlobalBackbuffer.Height * BytesPerPixel),
+  GlobalBackbuffer.Pitch = width * BYTES_PER_PIXEL;
+  GlobalBackbuffer.Memory = mmap(0, (size_t)(GlobalBackbuffer.Width * GlobalBackbuffer.Height * BYTES_PER_PIXEL),
                                  PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 }
 
-void SDLUpdateWindow(SDL_Renderer *renderer) {
-  uint8_t *texture_data = NULL;
-  int texture_pitch = 0;
+void sdl_update_window(SDL_Renderer *renderer) {
+  u8 *textureData = NULL;
+  int texturePitch = 0;
 
-  SDL_LockTexture(GlobalBackbuffer.Texture, 0, (void **)&texture_data, &texture_pitch);
-  memcpy(texture_data, GlobalBackbuffer.Memory,
-         (size_t)(GlobalBackbuffer.Height * GlobalBackbuffer.Pitch) * sizeof(uint8_t));
+  SDL_LockTexture(GlobalBackbuffer.Texture, nullptr, (void **)&textureData, &texturePitch);
+  memcpy(textureData, GlobalBackbuffer.Memory, (size_t)(GlobalBackbuffer.Height * GlobalBackbuffer.Pitch) * sizeof(u8));
   SDL_UnlockTexture(GlobalBackbuffer.Texture);
 
   SDL_RenderCopy(renderer, GlobalBackbuffer.Texture, NULL, NULL);
 
-  SDL_Rect fps_rect;
-  fps_rect.x = 0;
-  fps_rect.y = 0;
-  FpsMessageTexture = getFPSTexture(renderer, &fps_rect);
-  if (FpsMessageTexture) {
-    SDL_RenderCopy(renderer, FpsMessageTexture, NULL, &fps_rect);
+  SDL_Rect fpsRect;
+  fpsRect.x = 0;
+  fpsRect.y = 0;
+  FpsMessageTexture = get_fps_texture(renderer, &fpsRect);
+  if (FpsMessageTexture != nullptr) {
+    SDL_RenderCopy(renderer, FpsMessageTexture, NULL, &fpsRect);
   }
 
   SDL_RenderPresent(renderer);
 }
 
-void renderWeirdGradient(int x_offset, int y_offset) {
-  uint8_t *row = (uint8_t *)GlobalBackbuffer.Memory;
+void renderWeirdGradient(int xOffset, int yOffset) {
+  u8 *row = (u8 *)GlobalBackbuffer.Memory;
   for (int y = 0; y < GlobalBackbuffer.Height; ++y) {
-    uint8_t *pixel = (uint8_t *)row;
+    u32 *pixel = (u32 *)row;
     for (int x = 0; x < GlobalBackbuffer.Width; ++x) {
-      *pixel = (uint8_t)(x + x_offset);
-      ++pixel;
+      u8 blue = (u8)(x + xOffset);
+      u8 green = (u8)(y + yOffset);
 
-      *pixel = (uint8_t)(y + y_offset);
-      ++pixel;
-
-      *pixel = 0;
-      ++pixel;
-
-      *pixel = 0;
-      ++pixel;
+      *pixel++ = (u32)((green << 8) | blue);
     }
 
     row += GlobalBackbuffer.Pitch;
   }
 }
 
-void handleEvent(SDL_Event *event, int *y_offset) {
+void handle_event(SDL_Event *event, int *yOffset) {
   switch (event->type) {
   case SDL_QUIT: {
     printf("SDL_QUIT\n");
-    Running = false;
+    running = false;
   } break;
 
   case SDL_KEYDOWN:
   case SDL_KEYUP: {
-    SDL_Keycode key_code = event->key.keysym.sym;
+    SDL_Keycode keyCode = event->key.keysym.sym;
     // bool was_down = false;
     // if (event->key.state == SDL_RELEASED) {
     //   was_down = true;
@@ -208,8 +233,8 @@ void handleEvent(SDL_Event *event, int *y_offset) {
     //   was_down = true;
     // }
 
-    if (key_code == SDLK_w && event->key.state == SDL_PRESSED) {
-      *y_offset += 2;
+    if (keyCode == SDLK_w && event->key.state == SDL_PRESSED) {
+      *yOffset += 2;
     }
   } break;
 
@@ -226,7 +251,7 @@ void handleEvent(SDL_Event *event, int *y_offset) {
     case SDL_WINDOWEVENT_EXPOSED: {
       SDL_Window *window = SDL_GetWindowFromID(event->window.windowID);
       SDL_Renderer *renderer = SDL_GetRenderer(window);
-      SDLUpdateWindow(renderer);
+      sdl_update_window(renderer);
     } break;
     }
   } break;
@@ -234,72 +259,128 @@ void handleEvent(SDL_Event *event, int *y_offset) {
 }
 
 int main() {
-  int result_code = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
-  if (result_code < 0) {
-    outputSDLError("SDL_Init");
+  int resultCode = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
+  if (resultCode < 0) {
+    output_sdl_error("SDL_Init");
     return 1;
   }
 
-  result_code = TTF_Init();
-  if (result_code < 0) {
-    outputTTFError("TTF_Init");
-    return 1;
+  resultCode = TTF_Init();
+  if (resultCode < 0) {
+    output_ttf_error("TTF_Init");
   }
 
   struct SDL_Window *window =
       SDL_CreateWindow("Handmade", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1028, 720, SDL_WINDOW_RESIZABLE);
-  if (!window) {
-    outputSDLError("SDL_CreateWindow");
+  if (window == nullptr) {
+    output_sdl_error("SDL_CreateWindow");
     return 1;
   }
-
-  SDLInitSoundDevice(800, 128);
 
   struct SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, 0);
-  if (!renderer) {
-    outputSDLError("SDL_CreateRenderer");
-    return 1;
+  if (renderer == nullptr) {
+    output_sdl_error("SDL_CreateRenderer");
   }
+
+  running = true;
 
   Sans = TTF_OpenFont("fonts/OpenSans-Regular.ttf", 11);
-  if (!Sans) {
-    outputTTFError("TTF_OpenFont");
+  if (Sans == nullptr) {
+    output_ttf_error("TTF_OpenFont");
     return 1;
   }
 
-  GlobalBackbuffer.Texture = NULL;
-  GlobalBackbuffer.Memory = NULL;
+  GlobalBackbuffer.Texture = nullptr;
+  GlobalBackbuffer.Memory = nullptr;
   GlobalBackbuffer.Height = 0;
   GlobalBackbuffer.Width = 0;
   GlobalBackbuffer.Pitch = 0;
 
   // Start counting frames per second
-  CountedFrames = 0;
-  LastTime = SDL_GetTicks64();
+  countedFrames = 0;
+  lastTime = SDL_GetTicks64();
 
-  int x_offset = 0;
-  int y_offset = 0;
-  sdl_window_dimension window_dimensions = SDLGetWindowDimension(window);
-  SDLResizeTexture(renderer, window_dimensions.Width, window_dimensions.Height);
-  SDL_PauseAudio(0);
-  while (Running) {
-    uint64_t current_time = SDL_GetTicks64();
-    if (current_time - LastTime >= 1000) {
+  int xOffset = 0;
+  int yOffset = 0;
+  SdlWindowDimension window_dimensions = sdl_get_window_dimension(window);
+  sdl_resize_texture(renderer, window_dimensions.Width, window_dimensions.Height);
+
+  // NOTE: Sound test
+  int samplesPerSecond = 48000;
+  int toneHz = 256;
+  i16 toneVolume = 3000;
+  u32 runningSampleIndex = 0;
+  int squareWavePeriod = samplesPerSecond / toneHz;
+  int halfSquareWavePeriod = squareWavePeriod / 2;
+  int bytesPerSample = sizeof(i16) * 2;
+  int secondaryBufferSize = samplesPerSecond * bytesPerSample;
+
+  sdl_init_sound_device(samplesPerSecond, secondaryBufferSize);
+  bool isSoundPlaying = false;
+
+  while (running) {
+    u64 currentTime = SDL_GetTicks64();
+    if (currentTime - lastTime >= 1000) {
       // Calculate frames per second
-      fps = CountedFrames;
-      CountedFrames = 0;
-      LastTime = current_time;
+      fps = countedFrames;
+      countedFrames = 0;
+      lastTime = currentTime;
     }
 
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
-      handleEvent(&event, &y_offset);
+      handle_event(&event, &yOffset);
     }
-    renderWeirdGradient(x_offset, y_offset);
-    SDLUpdateWindow(renderer);
+    renderWeirdGradient(xOffset, yOffset);
 
-    ++x_offset;
-    ++CountedFrames;
+    // Sound square wave test
+    SDL_LockAudio();
+    int byteToLock = (int)(runningSampleIndex)*bytesPerSample % secondaryBufferSize;
+    int bytesToWrite;
+    if (byteToLock == AudioRingBuffer.PlayCursor) {
+      bytesToWrite = secondaryBufferSize;
+    } else if (byteToLock > AudioRingBuffer.PlayCursor) {
+      bytesToWrite = (secondaryBufferSize - byteToLock);
+      bytesToWrite += AudioRingBuffer.PlayCursor;
+    } else {
+      bytesToWrite = AudioRingBuffer.PlayCursor - byteToLock;
+    }
+
+    void *region1 = (u8 *)AudioRingBuffer.Data + byteToLock;
+    int region1Size = bytesToWrite;
+    if (region1Size + byteToLock > secondaryBufferSize) {
+      region1Size = secondaryBufferSize - byteToLock;
+    }
+    void *region2 = AudioRingBuffer.Data;
+    int region2Size = bytesToWrite - region1Size;
+    SDL_UnlockAudio();
+    int region1SampleCount = region1Size / bytesPerSample;
+    i16 *sampleOut = (i16 *)region1;
+    for (int sampleIndex = 0; sampleIndex < region1SampleCount; ++sampleIndex) {
+      i16 sampleValue = (((int)(runningSampleIndex++) / halfSquareWavePeriod) % 2) ? toneVolume : -toneVolume;
+
+      *sampleOut++ = sampleValue;
+      *sampleOut++ = sampleValue;
+    }
+
+    int region2SampleCount = region2Size / bytesPerSample;
+    sampleOut = (i16 *)region2;
+    for (int sampleIndex = 0; sampleIndex < region2SampleCount; ++sampleIndex) {
+      i16 sampleValue = (((int)(runningSampleIndex++) / halfSquareWavePeriod) % 2) ? toneVolume : toneVolume;
+
+      *sampleOut++ = sampleValue;
+      *sampleOut++ = sampleValue;
+    }
+
+    if (!isSoundPlaying) {
+      SDL_PauseAudio(0);
+      isSoundPlaying = true;
+    }
+
+    sdl_update_window(renderer);
+
+    ++xOffset;
+    ++countedFrames;
   }
 
   SDL_Quit();
