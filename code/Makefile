@@ -2,7 +2,7 @@ CFlags = -Wall -Wpedantic -pedantic-errors -Wall -Wextra -Wconversion -Wsign-con
 
 LINKERFLAG = -L/usr/include/SDL2 -lSDL2 -lSDL2_ttf
 
-CC = clang-17
+CC = clang
 
 DEBUG = -g
 RELEASE = -O2 -DNDEBUG

@@ -15,18 +15,17 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include "SDL_audio.h"
+#include "SDL_blendmode.h"
+#include "SDL_error.h"
+#include "SDL_pixels.h"
+#include "SDL_render.h"
+#include "SDL_surface.h"
 #include "SDL_video.h"
 #include <SDL.h>
 #include <SDL_ttf.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <string.h>
-#include <sys/mman.h>
-
-#ifndef MAP_ANONYMOUS
-#define MAP_ANONYMOUS MAP_ANON
-#endif
+#include <stdlib.h>
 
 typedef int8_t i8;
 typedef int16_t i16;
@@ -38,30 +37,112 @@ typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
 
-bool running;
-u64 countedFrames = 0;
-u64 lastTime;
-const int BYTES_PER_PIXEL = 4;
+const char title[] = "Handmade";
+const char font_name[] = "fonts/OpenSans-Regular.ttf";
+const int text_size = 12;
 
-u64 fps = 0;
-TTF_Font *Sans;
-void *fpsText = NULL;
-SDL_Color White = {255, 255, 255, 255};
-struct SDL_Texture *FpsMessageTexture;
+typedef struct SdlContext {
+  int w;
+  int h;
+  SDL_Window *window;
+  SDL_Renderer *renderer;
+  SDL_Surface *backbuffer;
+  SDL_Texture *screen;
+} SdlContext;
 
-typedef struct SdlOffscreenBuffer {
-  // 32bit pixels in BGRX order
-  struct SDL_Texture *Texture;
-  void *Memory;
-  int Width;
-  int Height;
-  int Pitch;
-} SdlOffscreenBuffer;
+typedef struct Game {
+  SdlContext sdl;
+  TTF_Font *font;
+  u32 fps;
+  bool should_quit;
+  u8 x_offset;
+  u8 y_offset;
+} Game;
 
-typedef struct SdlWindowDimension {
-  int Width;
-  int Height;
-} SdlWindowDimension;
+void set_sdl_context(SdlContext *sdlc, int w, int h, const char title[]) {
+  int result_code = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_VIDEO);
+  atexit(SDL_Quit);
+  if (result_code < 0) {
+    const char *err = SDL_GetError();
+    printf("SDL error in SDL_Init: %s", err);
+    exit(1);
+  }
+
+  result_code = TTF_Init();
+  atexit(TTF_Quit);
+  if (result_code < 0) {
+    const char *err = SDL_GetError();
+    printf("TTF error in TTF_Init: %s", err);
+    exit(1);
+  }
+
+  u8 bits_per_pixel = 32;
+  SDL_CreateWindowAndRenderer(w, h, 0, &sdlc->window, &sdlc->renderer);
+  SDL_SetWindowTitle(sdlc->window, title);
+  SDL_SetWindowResizable(sdlc->window, true);
+  sdlc->w = w;
+  sdlc->h = h;
+  sdlc->backbuffer = SDL_CreateRGBSurface(0, w, h, bits_per_pixel, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
+  SDL_SetSurfaceRLE(sdlc->backbuffer, 0);
+  SDL_SetSurfaceBlendMode(sdlc->backbuffer, SDL_BLENDMODE_NONE);
+  sdlc->screen = SDL_CreateTexture(sdlc->renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, w, h);
+}
+
+void resize_screen(Game *g, int w, int h) {
+  if (g->sdl.screen) {
+    SDL_DestroyTexture(g->sdl.screen);
+  }
+  if (g->sdl.backbuffer) {
+    SDL_FreeSurface(g->sdl.backbuffer);
+  }
+  u8 bits_per_pixel = 32;
+  g->sdl.screen = SDL_CreateTexture(g->sdl.renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, w, h);
+  g->sdl.backbuffer = SDL_CreateRGBSurface(0, w, h, bits_per_pixel, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
+  SDL_SetSurfaceBlendMode(g->sdl.backbuffer, SDL_BLENDMODE_NONE);
+  SDL_SetSurfaceRLE(g->sdl.backbuffer, 0);
+}
+
+void draw_begin(Game *g) { SDL_RenderClear(g->sdl.renderer); }
+
+void draw_weird_gradient(Game *g) {
+  u8 *row_ptr = (u8 *)(g->sdl.backbuffer->pixels);
+  for (int y = 0; y < g->sdl.backbuffer->h; ++y) {
+    u32 *pixel_ptr = (u32 *)(row_ptr);
+    for (int x = 0; x < g->sdl.backbuffer->w; ++x) {
+      u8 blue = (u8)(x + g->x_offset);
+      u8 green = (u8)(y + g->y_offset);
+
+      *pixel_ptr = ((u32)(green) << 8) | (u32)(blue);
+      pixel_ptr++;
+    }
+    row_ptr += g->sdl.backbuffer->pitch;
+  }
+
+  SDL_Surface *screen_buffer;
+  SDL_LockTextureToSurface(g->sdl.screen, nullptr, &screen_buffer);
+  SDL_BlitSurface(g->sdl.backbuffer, nullptr, screen_buffer, nullptr);
+  SDL_UnlockTexture(g->sdl.screen);
+  SDL_RenderCopy(g->sdl.renderer, g->sdl.screen, nullptr, nullptr);
+}
+
+void draw_fps_text(Game *g) {
+  size_t size = (size_t)snprintf(NULL, 0, "FPS: %u", g->fps);
+  char *fpsText = (char *)malloc(size + 1);
+  snprintf(fpsText, size + 1, "FPS: %u", g->fps);
+
+  SDL_Color text_color = {255, 255, 255, 255};
+  SDL_Surface *text_surface = TTF_RenderText_Solid(g->font, fpsText, text_color);
+  SDL_Texture *text_texture = SDL_CreateTextureFromSurface(g->sdl.renderer, text_surface);
+  int text_w = 0;
+  int text_h = 0;
+  SDL_QueryTexture(text_texture, nullptr, nullptr, &text_w, &text_h);
+  SDL_Rect dst_rect = {0, 0, text_w, text_h};
+  SDL_RenderCopy(g->sdl.renderer, text_texture, nullptr, &dst_rect);
+  SDL_DestroyTexture(text_texture);
+  SDL_FreeSurface(text_surface);
+}
+
+void draw_end(Game *g) { SDL_RenderPresent(g->sdl.renderer); }
 
 typedef struct SdlAudioRingBuffer {
   int Size;
@@ -71,27 +152,7 @@ typedef struct SdlAudioRingBuffer {
 } SdlAudioRingBuffer;
 
 SdlAudioRingBuffer AudioRingBuffer = {};
-SdlOffscreenBuffer GlobalBackbuffer = {};
 SDL_AudioSpec AudioSettings = {};
-
-void output_sdl_error(const char *caller) {
-  const char *err = SDL_GetError();
-  printf("SDL error in %s: %s\n", caller, err);
-  running = false;
-}
-
-void output_ttf_error(const char *caller) {
-  const char *err = TTF_GetError();
-  printf("TTF error in %s: %s\n", caller, err);
-}
-
-SdlWindowDimension sdl_get_window_dimension(SDL_Window *window) {
-  SdlWindowDimension result = {};
-
-  SDL_GetWindowSize(window, &result.Width, &result.Height);
-
-  return result;
-}
 
 void sdl_audio_callback(void *userData, u8 *audioData, int length) {
   SdlAudioRingBuffer *ringBuffer = (SdlAudioRingBuffer *)userData;
@@ -134,93 +195,11 @@ void sdl_init_sound_device(i32 samplesPerSecond, i32 bufferSize) {
   }
 }
 
-SDL_Texture *get_fps_texture(SDL_Renderer *renderer, SDL_Rect *messageRect) {
-  if (FpsMessageTexture != nullptr) {
-    SDL_DestroyTexture(FpsMessageTexture);
-  }
-  if (fpsText != nullptr) {
-    free(fpsText);
-  }
-
-  size_t size = (size_t)snprintf(NULL, 0, "FPS: %lu", fps);
-  fpsText = (char *)malloc(size + 1);
-  snprintf((char *)(fpsText), size + 1, "FPS: %lu", fps);
-
-  SDL_Surface *messageSurface = TTF_RenderText_Solid(Sans, fpsText, White);
-  if (messageSurface == nullptr) {
-    output_ttf_error("TTF_RenderText_Solid");
-    return NULL;
-  }
-
-  messageRect->w = messageSurface->w;
-  messageRect->h = messageSurface->h;
-
-  SDL_Texture *result = SDL_CreateTextureFromSurface(renderer, messageSurface);
-  if (result == nullptr) {
-    output_sdl_error("SDL_CreateTextureFromSurface");
-    return NULL;
-  }
-  SDL_FreeSurface(messageSurface);
-  return result;
-}
-
-void sdl_resize_texture(SDL_Renderer *renderer, int width, int height) {
-  if (GlobalBackbuffer.Texture) {
-    SDL_DestroyTexture(GlobalBackbuffer.Texture);
-  }
-  if (GlobalBackbuffer.Memory) {
-    munmap(GlobalBackbuffer.Memory, (size_t)(GlobalBackbuffer.Width * GlobalBackbuffer.Height * BYTES_PER_PIXEL));
-  }
-  GlobalBackbuffer.Texture =
-      SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, width, height);
-  GlobalBackbuffer.Width = width;
-  GlobalBackbuffer.Height = height;
-  GlobalBackbuffer.Pitch = width * BYTES_PER_PIXEL;
-  GlobalBackbuffer.Memory = mmap(0, (size_t)(GlobalBackbuffer.Width * GlobalBackbuffer.Height * BYTES_PER_PIXEL),
-                                 PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-}
-
-void sdl_update_window(SDL_Renderer *renderer) {
-  u8 *textureData = NULL;
-  int texturePitch = 0;
-
-  SDL_LockTexture(GlobalBackbuffer.Texture, nullptr, (void **)&textureData, &texturePitch);
-  memcpy(textureData, GlobalBackbuffer.Memory, (size_t)(GlobalBackbuffer.Height * GlobalBackbuffer.Pitch) * sizeof(u8));
-  SDL_UnlockTexture(GlobalBackbuffer.Texture);
-
-  SDL_RenderCopy(renderer, GlobalBackbuffer.Texture, NULL, NULL);
-
-  SDL_Rect fpsRect;
-  fpsRect.x = 0;
-  fpsRect.y = 0;
-  FpsMessageTexture = get_fps_texture(renderer, &fpsRect);
-  if (FpsMessageTexture != nullptr) {
-    SDL_RenderCopy(renderer, FpsMessageTexture, NULL, &fpsRect);
-  }
-
-  SDL_RenderPresent(renderer);
-}
-
-void renderWeirdGradient(int xOffset, int yOffset) {
-  u8 *row = (u8 *)GlobalBackbuffer.Memory;
-  for (int y = 0; y < GlobalBackbuffer.Height; ++y) {
-    u32 *pixel = (u32 *)row;
-    for (int x = 0; x < GlobalBackbuffer.Width; ++x) {
-      u8 blue = (u8)(x + xOffset);
-      u8 green = (u8)(y + yOffset);
-
-      *pixel++ = (u32)((green << 8) | blue);
-    }
-
-    row += GlobalBackbuffer.Pitch;
-  }
-}
-
-void handle_event(SDL_Event *event, int *yOffset) {
+void handle_event(Game *g, SDL_Event *event) {
   switch (event->type) {
   case SDL_QUIT: {
     printf("SDL_QUIT\n");
-    running = false;
+    g->should_quit = true;
   } break;
 
   case SDL_KEYDOWN:
@@ -234,7 +213,7 @@ void handle_event(SDL_Event *event, int *yOffset) {
     // }
 
     if (keyCode == SDLK_w && event->key.state == SDL_PRESSED) {
-      *yOffset += 2;
+      g->y_offset += 2;
     }
   } break;
 
@@ -242,16 +221,11 @@ void handle_event(SDL_Event *event, int *yOffset) {
     switch (event->window.event) {
     case SDL_WINDOWEVENT_SIZE_CHANGED: {
       printf("SDL_WINDOWEVENT_RESIZED (%d, %d)\n", event->window.data1, event->window.data2);
+      resize_screen(g, event->window.data1, event->window.data2);
     } break;
 
     case SDL_WINDOWEVENT_FOCUS_GAINED: {
       printf("SDL_WINDOWEVENT_FOCUS_GAINED\n");
-    } break;
-
-    case SDL_WINDOWEVENT_EXPOSED: {
-      SDL_Window *window = SDL_GetWindowFromID(event->window.windowID);
-      SDL_Renderer *renderer = SDL_GetRenderer(window);
-      sdl_update_window(renderer);
     } break;
     }
   } break;
@@ -259,54 +233,17 @@ void handle_event(SDL_Event *event, int *yOffset) {
 }
 
 int main() {
-  int resultCode = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
-  if (resultCode < 0) {
-    output_sdl_error("SDL_Init");
-    return 1;
-  }
-
-  resultCode = TTF_Init();
-  if (resultCode < 0) {
-    output_ttf_error("TTF_Init");
-  }
-
-  struct SDL_Window *window =
-      SDL_CreateWindow("Handmade", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1028, 720, SDL_WINDOW_RESIZABLE);
-  if (window == nullptr) {
-    output_sdl_error("SDL_CreateWindow");
-    return 1;
-  }
-
-  struct SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, 0);
-  if (renderer == nullptr) {
-    output_sdl_error("SDL_CreateRenderer");
-  }
-
-  running = true;
-
-  Sans = TTF_OpenFont("fonts/OpenSans-Regular.ttf", 11);
-  if (Sans == nullptr) {
-    output_ttf_error("TTF_OpenFont");
-    return 1;
-  }
-
-  GlobalBackbuffer.Texture = nullptr;
-  GlobalBackbuffer.Memory = nullptr;
-  GlobalBackbuffer.Height = 0;
-  GlobalBackbuffer.Width = 0;
-  GlobalBackbuffer.Pitch = 0;
+  Game game = {};
+  set_sdl_context(&game.sdl, 1024, 728, title);
+  game.font = TTF_OpenFont(font_name, text_size);
+  game.should_quit = false;
 
   // Start counting frames per second
-  countedFrames = 0;
-  lastTime = SDL_GetTicks64();
-
-  int xOffset = 0;
-  int yOffset = 0;
-  SdlWindowDimension window_dimensions = sdl_get_window_dimension(window);
-  sdl_resize_texture(renderer, window_dimensions.Width, window_dimensions.Height);
+  u32 countedFrames = 0;
+  u64 lastTime = SDL_GetTicks64();
 
   // NOTE: Sound test
-  int samplesPerSecond = 48000;
+  int samplesPerSecond = 44100;
   int toneHz = 256;
   i16 toneVolume = 3000;
   u32 runningSampleIndex = 0;
@@ -318,20 +255,23 @@ int main() {
   sdl_init_sound_device(samplesPerSecond, secondaryBufferSize);
   bool isSoundPlaying = false;
 
-  while (running) {
+  while (!game.should_quit) {
     u64 currentTime = SDL_GetTicks64();
     if (currentTime - lastTime >= 1000) {
       // Calculate frames per second
-      fps = countedFrames;
+      game.fps = countedFrames;
       countedFrames = 0;
       lastTime = currentTime;
     }
 
-    SDL_Event event;
-    while (SDL_PollEvent(&event)) {
-      handle_event(&event, &yOffset);
-    }
-    renderWeirdGradient(xOffset, yOffset);
+    ++countedFrames;
+
+    draw_begin(&game);
+    draw_weird_gradient(&game);
+    draw_fps_text(&game);
+    draw_end(&game);
+
+    ++game.x_offset;
 
     // Sound square wave test
     SDL_LockAudio();
@@ -354,6 +294,7 @@ int main() {
     void *region2 = AudioRingBuffer.Data;
     int region2Size = bytesToWrite - region1Size;
     SDL_UnlockAudio();
+
     int region1SampleCount = region1Size / bytesPerSample;
     i16 *sampleOut = (i16 *)region1;
     for (int sampleIndex = 0; sampleIndex < region1SampleCount; ++sampleIndex) {
@@ -377,12 +318,11 @@ int main() {
       isSoundPlaying = true;
     }
 
-    sdl_update_window(renderer);
-
-    ++xOffset;
-    ++countedFrames;
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {
+      handle_event(&game, &event);
+    }
   }
 
-  SDL_Quit();
-  return 0;
+  exit(0);
 }
