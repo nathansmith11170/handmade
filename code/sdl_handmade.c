@@ -48,11 +48,11 @@ typedef struct SdlContext {
   SDL_Renderer *renderer;
   SDL_Surface *backbuffer;
   SDL_Texture *screen;
+  TTF_Font *font;
 } SdlContext;
 
 typedef struct Game {
   SdlContext sdl;
-  TTF_Font *font;
   u32 fps;
   bool should_quit;
   u8 x_offset;
@@ -131,7 +131,7 @@ void draw_fps_text(Game *g) {
   snprintf(fpsText, size + 1, "FPS: %u", g->fps);
 
   SDL_Color text_color = {255, 255, 255, 255};
-  SDL_Surface *text_surface = TTF_RenderText_Solid(g->font, fpsText, text_color);
+  SDL_Surface *text_surface = TTF_RenderText_Solid(g->sdl.font, fpsText, text_color);
   SDL_Texture *text_texture = SDL_CreateTextureFromSurface(g->sdl.renderer, text_surface);
   int text_w = 0;
   int text_h = 0;
@@ -144,44 +144,14 @@ void draw_fps_text(Game *g) {
 
 void draw_end(Game *g) { SDL_RenderPresent(g->sdl.renderer); }
 
-typedef struct SdlAudioRingBuffer {
-  int Size;
-  int WriteCursor;
-  int PlayCursor;
-  void *Data;
-} SdlAudioRingBuffer;
-
-SdlAudioRingBuffer AudioRingBuffer = {};
 SDL_AudioSpec AudioSettings = {};
-
-void sdl_audio_callback(void *userData, u8 *audioData, int length) {
-  SdlAudioRingBuffer *ringBuffer = (SdlAudioRingBuffer *)userData;
-
-  int region1Size = length;
-  int region2Size = 0;
-  if (ringBuffer->PlayCursor + length > ringBuffer->Size) {
-    region1Size = ringBuffer->Size - ringBuffer->PlayCursor;
-    region2Size = length - region1Size;
-  }
-
-  memcpy(audioData, (u8 *)(ringBuffer->Data) + ringBuffer->PlayCursor, (size_t)(region1Size));
-  memcpy(&audioData[region1Size], ringBuffer->Data, (size_t)(region2Size));
-
-  ringBuffer->PlayCursor = (ringBuffer->PlayCursor + length) % ringBuffer->Size;
-  ringBuffer->WriteCursor = (ringBuffer->PlayCursor + 2048) % ringBuffer->Size;
-}
 
 void sdl_init_sound_device(i32 samplesPerSecond, i32 bufferSize) {
   AudioSettings.freq = samplesPerSecond;
   AudioSettings.format = AUDIO_S16LSB;
   AudioSettings.channels = 2;
   AudioSettings.samples = 1024;
-  AudioSettings.callback = &sdl_audio_callback;
-  AudioSettings.userdata = &AudioRingBuffer;
-
-  AudioRingBuffer.Size = bufferSize;
-  AudioRingBuffer.Data = malloc((u32)(bufferSize));
-  AudioRingBuffer.PlayCursor = AudioRingBuffer.WriteCursor = 0;
+  AudioSettings.callback = nullptr;
 
   SDL_OpenAudio(&AudioSettings, nullptr);
 
@@ -235,7 +205,7 @@ void handle_event(Game *g, SDL_Event *event) {
 int main() {
   Game game = {};
   set_sdl_context(&game.sdl, 1024, 728, title);
-  game.font = TTF_OpenFont(font_name, text_size);
+  game.sdl.font = TTF_OpenFont(font_name, text_size);
   game.should_quit = false;
 
   // Start counting frames per second
@@ -243,17 +213,17 @@ int main() {
   u64 lastTime = SDL_GetTicks64();
 
   // NOTE: Sound test
-  int samplesPerSecond = 44100;
-  int toneHz = 256;
-  i16 toneVolume = 3000;
-  u32 runningSampleIndex = 0;
-  int squareWavePeriod = samplesPerSecond / toneHz;
-  int halfSquareWavePeriod = squareWavePeriod / 2;
-  int bytesPerSample = sizeof(i16) * 2;
-  int secondaryBufferSize = samplesPerSecond * bytesPerSample;
+  u32 samples_per_sec = 44100;
+  u32 tone_hz = 256;
+  i16 tone_volume = 3000;
+  u32 running_sample_index = 0;
+  u32 square_wave_period = samples_per_sec / tone_hz;
+  u32 half_square_wave_period = square_wave_period / 2;
+  u32 bytes_per_sample = sizeof(i16) * 2;
+  u32 secondary_buffer_size = samples_per_sec * bytes_per_sample;
 
-  sdl_init_sound_device(samplesPerSecond, secondaryBufferSize);
-  bool isSoundPlaying = false;
+  sdl_init_sound_device((int)(samples_per_sec), (int)(secondary_buffer_size));
+  bool is_sound_paused = true;
 
   while (!game.should_quit) {
     u64 currentTime = SDL_GetTicks64();
@@ -273,49 +243,25 @@ int main() {
 
     ++game.x_offset;
 
-    // Sound square wave test
-    SDL_LockAudio();
-    int byteToLock = (int)(runningSampleIndex)*bytesPerSample % secondaryBufferSize;
-    int bytesToWrite;
-    if (byteToLock == AudioRingBuffer.PlayCursor) {
-      bytesToWrite = secondaryBufferSize;
-    } else if (byteToLock > AudioRingBuffer.PlayCursor) {
-      bytesToWrite = (secondaryBufferSize - byteToLock);
-      bytesToWrite += AudioRingBuffer.PlayCursor;
-    } else {
-      bytesToWrite = AudioRingBuffer.PlayCursor - byteToLock;
+    // Sound output test
+    u32 target_queue_bytes = (u32)(samples_per_sec * bytes_per_sample);
+    u32 bytes_to_write = target_queue_bytes - SDL_GetQueuedAudioSize(1);
+    if (bytes_to_write) {
+      void *sound_buffer = malloc(bytes_to_write);
+      i16 *sample_out = (i16 *)sound_buffer;
+      u32 sample_count = bytes_to_write / bytes_per_sample;
+      for (u32 sample_i = 0; sample_i < sample_count; ++sample_i) {
+        i16 sample_val = ((running_sample_index++ / half_square_wave_period) % 2) ? tone_volume : -tone_volume;
+        *sample_out++ = sample_val;
+        *sample_out++ = sample_val;
+      }
+      SDL_QueueAudio(1, sound_buffer, bytes_to_write);
+      free(sound_buffer);
     }
 
-    void *region1 = (u8 *)AudioRingBuffer.Data + byteToLock;
-    int region1Size = bytesToWrite;
-    if (region1Size + byteToLock > secondaryBufferSize) {
-      region1Size = secondaryBufferSize - byteToLock;
-    }
-    void *region2 = AudioRingBuffer.Data;
-    int region2Size = bytesToWrite - region1Size;
-    SDL_UnlockAudio();
-
-    int region1SampleCount = region1Size / bytesPerSample;
-    i16 *sampleOut = (i16 *)region1;
-    for (int sampleIndex = 0; sampleIndex < region1SampleCount; ++sampleIndex) {
-      i16 sampleValue = (((int)(runningSampleIndex++) / halfSquareWavePeriod) % 2) ? toneVolume : -toneVolume;
-
-      *sampleOut++ = sampleValue;
-      *sampleOut++ = sampleValue;
-    }
-
-    int region2SampleCount = region2Size / bytesPerSample;
-    sampleOut = (i16 *)region2;
-    for (int sampleIndex = 0; sampleIndex < region2SampleCount; ++sampleIndex) {
-      i16 sampleValue = (((int)(runningSampleIndex++) / halfSquareWavePeriod) % 2) ? toneVolume : toneVolume;
-
-      *sampleOut++ = sampleValue;
-      *sampleOut++ = sampleValue;
-    }
-
-    if (!isSoundPlaying) {
-      SDL_PauseAudio(0);
-      isSoundPlaying = true;
+    if (is_sound_paused) {
+      is_sound_paused = false;
+      SDL_PauseAudio(is_sound_paused);
     }
 
     SDL_Event event;
