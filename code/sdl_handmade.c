@@ -15,6 +15,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+#include "SDL_audio.h"
 #include "SDL_blendmode.h"
 #include "SDL_error.h"
 #include "SDL_pixels.h"
@@ -23,6 +24,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "SDL_video.h"
 #include <SDL.h>
 #include <SDL_ttf.h>
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,6 +39,10 @@ typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
 
+typedef float f32;
+typedef double f64;
+
+const f32 pi = 3.1415927f;
 const char title[] = "Handmade";
 const char font_name[] = "fonts/OpenSans-Regular.ttf";
 const int text_size = 12;
@@ -50,6 +56,7 @@ typedef struct SdlContext {
   SDL_Texture *screen;
   TTF_Font *font;
   SDL_AudioSpec AudioSettings;
+  SDL_AudioDeviceID audio_device_id;
 } SdlContext;
 
 typedef struct Game {
@@ -61,7 +68,7 @@ typedef struct Game {
 } Game;
 
 void set_sdl_context(SdlContext *sdlc, int w, int h, const char title[]) {
-  int result_code = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_VIDEO);
+  int result_code = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
   atexit(SDL_Quit);
   if (result_code < 0) {
     const char *err = SDL_GetError();
@@ -127,7 +134,7 @@ void draw_weird_gradient(Game *g) {
 }
 
 void draw_fps_text(Game *g) {
-  size_t size = (size_t)snprintf(NULL, 0, "FPS: %u", g->fps);
+  size_t size = (size_t)snprintf(nullptr, 0, "FPS: %u", g->fps);
   char *fpsText = (char *)malloc(size + 1);
   snprintf(fpsText, size + 1, "FPS: %u", g->fps);
 
@@ -152,7 +159,12 @@ void init_sound_device(Game *g, i32 samplesPerSecond) {
   g->sdl.AudioSettings.samples = 1024;
   g->sdl.AudioSettings.callback = nullptr;
 
-  SDL_OpenAudio(&g->sdl.AudioSettings, nullptr);
+  g->sdl.audio_device_id =
+      SDL_OpenAudioDevice(nullptr, false, &g->sdl.AudioSettings, nullptr, SDL_AUDIO_ALLOW_ANY_CHANGE);
+  if (g->sdl.audio_device_id == 0) {
+    const char *err = SDL_GetError();
+    printf("Error opening audio device: %s\n", err);
+  }
 
   printf("Initialised an Audio device at frequency %d Hz, %d Channels, buffer "
          "size %d\n",
@@ -160,7 +172,7 @@ void init_sound_device(Game *g, i32 samplesPerSecond) {
 
   if (g->sdl.AudioSettings.format != AUDIO_S16LSB) {
     printf("Oops! We didn't get AUDIO_S16LSB as our sample format!\n");
-    SDL_CloseAudio();
+    SDL_CloseAudioDevice(g->sdl.audio_device_id);
   }
 }
 
@@ -216,8 +228,7 @@ int main() {
   u32 tone_hz = 256;
   i16 tone_volume = 3000;
   u32 running_sample_index = 0;
-  u32 square_wave_period = samples_per_sec / tone_hz;
-  u32 half_square_wave_period = square_wave_period / 2;
+  f32 wave_period = (f32)(samples_per_sec) / (f32)(tone_hz);
   u32 bytes_per_sample = sizeof(i16) * 2;
 
   init_sound_device(&game, (int)(samples_per_sec));
@@ -243,23 +254,26 @@ int main() {
 
     // Sound output test
     u32 target_queue_bytes = (u32)(samples_per_sec * bytes_per_sample);
-    u32 bytes_to_write = target_queue_bytes - SDL_GetQueuedAudioSize(1);
+    u32 bytes_to_write = target_queue_bytes - SDL_GetQueuedAudioSize(game.sdl.audio_device_id);
     if (bytes_to_write) {
       void *sound_buffer = malloc(bytes_to_write);
       i16 *sample_out = (i16 *)sound_buffer;
       u32 sample_count = bytes_to_write / bytes_per_sample;
       for (u32 sample_i = 0; sample_i < sample_count; ++sample_i) {
-        i16 sample_val = ((running_sample_index++ / half_square_wave_period) % 2) ? tone_volume : -tone_volume;
+        f32 t = 2.0f * pi * (f32)(running_sample_index) / wave_period;
+        f32 sine_value = sinf(t);
+        i16 sample_val = (i16)(sine_value * tone_volume);
         *sample_out++ = sample_val;
         *sample_out++ = sample_val;
+        ++running_sample_index;
       }
-      SDL_QueueAudio(1, sound_buffer, bytes_to_write);
+      SDL_QueueAudio(game.sdl.audio_device_id, sound_buffer, bytes_to_write);
       free(sound_buffer);
     }
 
     if (is_sound_paused) {
       is_sound_paused = false;
-      SDL_PauseAudio(is_sound_paused);
+      SDL_PauseAudioDevice(game.sdl.audio_device_id, is_sound_paused);
     }
 
     SDL_Event event;
@@ -268,5 +282,6 @@ int main() {
     }
   }
 
+  SDL_CloseAudioDevice(game.sdl.audio_device_id);
   exit(0);
 }
