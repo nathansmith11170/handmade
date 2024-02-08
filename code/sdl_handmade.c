@@ -146,7 +146,7 @@ void draw_end(Game *g) { SDL_RenderPresent(g->sdl.renderer); }
 
 SDL_AudioSpec AudioSettings = {};
 
-void sdl_init_sound_device(i32 samplesPerSecond, i32 bufferSize) {
+void sdl_init_sound_device(i32 samplesPerSecond) {
   AudioSettings.freq = samplesPerSecond;
   AudioSettings.format = AUDIO_S16LSB;
   AudioSettings.channels = 2;
@@ -220,9 +220,8 @@ int main() {
   u32 square_wave_period = samples_per_sec / tone_hz;
   u32 half_square_wave_period = square_wave_period / 2;
   u32 bytes_per_sample = sizeof(i16) * 2;
-  u32 secondary_buffer_size = samples_per_sec * bytes_per_sample;
 
-  sdl_init_sound_device((int)(samples_per_sec), (int)(secondary_buffer_size));
+  sdl_init_sound_device((int)(samples_per_sec));
   bool is_sound_paused = true;
 
   while (!game.should_quit) {
