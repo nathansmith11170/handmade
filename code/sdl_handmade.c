@@ -49,6 +49,7 @@ typedef struct SdlContext {
   SDL_Surface *backbuffer;
   SDL_Texture *screen;
   TTF_Font *font;
+  SDL_AudioSpec AudioSettings;
 } SdlContext;
 
 typedef struct Game {
@@ -144,22 +145,20 @@ void draw_fps_text(Game *g) {
 
 void draw_end(Game *g) { SDL_RenderPresent(g->sdl.renderer); }
 
-SDL_AudioSpec AudioSettings = {};
+void init_sound_device(Game *g, i32 samplesPerSecond) {
+  g->sdl.AudioSettings.freq = samplesPerSecond;
+  g->sdl.AudioSettings.format = AUDIO_S16LSB;
+  g->sdl.AudioSettings.channels = 2;
+  g->sdl.AudioSettings.samples = 1024;
+  g->sdl.AudioSettings.callback = nullptr;
 
-void sdl_init_sound_device(i32 samplesPerSecond) {
-  AudioSettings.freq = samplesPerSecond;
-  AudioSettings.format = AUDIO_S16LSB;
-  AudioSettings.channels = 2;
-  AudioSettings.samples = 1024;
-  AudioSettings.callback = nullptr;
-
-  SDL_OpenAudio(&AudioSettings, nullptr);
+  SDL_OpenAudio(&g->sdl.AudioSettings, nullptr);
 
   printf("Initialised an Audio device at frequency %d Hz, %d Channels, buffer "
          "size %d\n",
-         AudioSettings.freq, AudioSettings.channels, AudioSettings.samples);
+         g->sdl.AudioSettings.freq, g->sdl.AudioSettings.channels, g->sdl.AudioSettings.samples);
 
-  if (AudioSettings.format != AUDIO_S16LSB) {
+  if (g->sdl.AudioSettings.format != AUDIO_S16LSB) {
     printf("Oops! We didn't get AUDIO_S16LSB as our sample format!\n");
     SDL_CloseAudio();
   }
@@ -221,7 +220,7 @@ int main() {
   u32 half_square_wave_period = square_wave_period / 2;
   u32 bytes_per_sample = sizeof(i16) * 2;
 
-  sdl_init_sound_device((int)(samples_per_sec));
+  init_sound_device(&game, (int)(samples_per_sec));
   bool is_sound_paused = true;
 
   while (!game.should_quit) {
