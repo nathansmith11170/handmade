@@ -21,9 +21,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "SDL_pixels.h"
 #include "SDL_render.h"
 #include "SDL_surface.h"
+#include "SDL_timer.h"
 #include "SDL_video.h"
 #include <SDL.h>
-#include <SDL_ttf.h>
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -44,7 +44,6 @@ typedef double f64;
 
 const f32 pi = 3.1415927f;
 const char title[] = "Handmade";
-const char font_name[] = "fonts/OpenSans-Regular.ttf";
 const int text_size = 12;
 
 typedef struct SdlContext {
@@ -54,7 +53,6 @@ typedef struct SdlContext {
   SDL_Renderer *renderer;
   SDL_Surface *backbuffer;
   SDL_Texture *screen;
-  TTF_Font *font;
   SDL_AudioSpec AudioSettings;
   SDL_AudioDeviceID audio_device_id;
 } SdlContext;
@@ -76,18 +74,9 @@ void set_sdl_context(SdlContext *sdlc, int w, int h, const char title[]) {
     exit(1);
   }
 
-  result_code = TTF_Init();
-  atexit(TTF_Quit);
-  if (result_code < 0) {
-    const char *err = SDL_GetError();
-    printf("TTF error in TTF_Init: %s", err);
-    exit(1);
-  }
-
   u8 bits_per_pixel = 32;
-  SDL_CreateWindowAndRenderer(w, h, 0, &sdlc->window, &sdlc->renderer);
-  SDL_SetWindowTitle(sdlc->window, title);
-  SDL_SetWindowResizable(sdlc->window, true);
+  sdlc->window = SDL_CreateWindow(title, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, w, h, SDL_WINDOW_RESIZABLE);
+  sdlc->renderer = SDL_CreateRenderer(sdlc->window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
   sdlc->w = w;
   sdlc->h = h;
   sdlc->backbuffer = SDL_CreateRGBSurface(0, w, h, bits_per_pixel, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
@@ -131,23 +120,6 @@ void draw_weird_gradient(Game *g) {
   SDL_BlitSurface(g->sdl.backbuffer, nullptr, screen_buffer, nullptr);
   SDL_UnlockTexture(g->sdl.screen);
   SDL_RenderCopy(g->sdl.renderer, g->sdl.screen, nullptr, nullptr);
-}
-
-void draw_fps_text(Game *g) {
-  size_t size = (size_t)snprintf(nullptr, 0, "FPS: %u", g->fps);
-  char *fpsText = (char *)malloc(size + 1);
-  snprintf(fpsText, size + 1, "FPS: %u", g->fps);
-
-  SDL_Color text_color = {255, 255, 255, 255};
-  SDL_Surface *text_surface = TTF_RenderText_Solid(g->sdl.font, fpsText, text_color);
-  SDL_Texture *text_texture = SDL_CreateTextureFromSurface(g->sdl.renderer, text_surface);
-  int text_w = 0;
-  int text_h = 0;
-  SDL_QueryTexture(text_texture, nullptr, nullptr, &text_w, &text_h);
-  SDL_Rect dst_rect = {0, 0, text_w, text_h};
-  SDL_RenderCopy(g->sdl.renderer, text_texture, nullptr, &dst_rect);
-  SDL_DestroyTexture(text_texture);
-  SDL_FreeSurface(text_surface);
 }
 
 void draw_end(Game *g) { SDL_RenderPresent(g->sdl.renderer); }
@@ -216,12 +188,7 @@ void handle_event(Game *g, SDL_Event *event) {
 int main() {
   Game game = {};
   set_sdl_context(&game.sdl, 1024, 728, title);
-  game.sdl.font = TTF_OpenFont(font_name, text_size);
   game.should_quit = false;
-
-  // Start counting frames per second
-  u32 countedFrames = 0;
-  u64 lastTime = SDL_GetTicks64();
 
   // NOTE: Sound test
   u32 samples_per_sec = 44100;
@@ -233,21 +200,13 @@ int main() {
 
   init_sound_device(&game, (int)(samples_per_sec));
   bool is_sound_paused = true;
-
+  u64 last_mark = SDL_GetPerformanceCounter();
+  u32 frames = 0;
   while (!game.should_quit) {
-    u64 currentTime = SDL_GetTicks64();
-    if (currentTime - lastTime >= 1000) {
-      // Calculate frames per second
-      game.fps = countedFrames;
-      countedFrames = 0;
-      lastTime = currentTime;
-    }
-
-    ++countedFrames;
+    frames++;
 
     draw_begin(&game);
     draw_weird_gradient(&game);
-    draw_fps_text(&game);
     draw_end(&game);
 
     ++game.x_offset;
@@ -280,6 +239,12 @@ int main() {
     while (SDL_PollEvent(&event)) {
       handle_event(&game, &event);
     }
+    u64 current = SDL_GetPerformanceCounter();
+    if ((f32)(current - last_mark) / (f32)SDL_GetPerformanceFrequency() > 1.0f) {
+      printf("FPS: %d\n", frames);
+      last_mark = current;
+      frames = 0;
+    };
   }
 
   SDL_CloseAudioDevice(game.sdl.audio_device_id);
