@@ -15,7 +15,6 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-
 #include <stdint.h>
 typedef int8_t i8;
 typedef int16_t i16;
@@ -30,14 +29,24 @@ typedef uint64_t u64;
 typedef float f32;
 typedef double f64;
 
+const f32 pi = 3.1415927f;
+
 typedef struct GameOffscreenBuffer {
   void *memory;
-  int width;
-  int height;
-  int pitch;
+  u32 width;
+  u32 height;
+  u32 pitch;
 } GameOffscreenBuffer;
 
-void game_update_and_render(GameOffscreenBuffer *buffer, int blue_offset, int green_offset);
+typedef struct GameSoundBuffer {
+  void *memory;
+  u32 samples_per_sec;
+  u32 running_sample_index;
+  u32 bytes_per_sample;
+} GameSoundBuffer;
+
+void game_update_and_render(GameOffscreenBuffer *buffer, GameSoundBuffer *sound_buffer, u32 samples_count_to_output,
+                            u32 blue_offset, u32 green_offset);
 
 #define HANDMADE_H
 #endif
