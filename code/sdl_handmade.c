@@ -14,6 +14,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+#include "handmade.c"
 
 #include "SDL.h"
 #include "SDL_audio.h"
@@ -24,23 +25,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "SDL_surface.h"
 #include "SDL_timer.h"
 #include "SDL_video.h"
-#include <math.h>
-#include <stdint.h>
+#include <math.h> // TODO(Nathan) Remove dependency, implement sine
 #include <stdio.h>
 #include <stdlib.h>
-
-typedef int8_t i8;
-typedef int16_t i16;
-typedef int32_t i32;
-typedef int64_t i64;
-
-typedef uint8_t u8;
-typedef uint16_t u16;
-typedef uint32_t u32;
-typedef uint64_t u64;
-
-typedef float f32;
-typedef double f64;
 
 const f32 pi = 3.1415927f;
 const char title[] = "Handmade";
@@ -100,19 +87,13 @@ void resize_screen(Game *g, int w, int h) {
 
 void draw_begin(Game *g) { SDL_RenderClear(g->sdl.renderer); }
 
-void draw_weird_gradient(Game *g) {
-  u8 *row_ptr = (u8 *)(g->sdl.backbuffer->pixels);
-  for (int y = 0; y < g->sdl.backbuffer->h; ++y) {
-    u32 *pixel_ptr = (u32 *)(row_ptr);
-    for (int x = 0; x < g->sdl.backbuffer->w; ++x) {
-      u8 blue = (u8)(x + g->x_offset);
-      u8 green = (u8)(y + g->y_offset);
-
-      *pixel_ptr = ((u32)(green) << 8) | (u32)(blue);
-      pixel_ptr++;
-    }
-    row_ptr += g->sdl.backbuffer->pitch;
-  }
+void draw_game_buffer(Game *g) {
+  GameOffscreenBuffer buffer = {};
+  buffer.memory = g->sdl.backbuffer->pixels;
+  buffer.width = g->sdl.backbuffer->w;
+  buffer.height = g->sdl.backbuffer->h;
+  buffer.pitch = g->sdl.backbuffer->pitch;
+  game_update_and_render(&buffer, g->x_offset, g->y_offset);
 
   SDL_Surface *screen_buffer;
   SDL_LockTextureToSurface(g->sdl.screen, nullptr, &screen_buffer);
@@ -205,7 +186,7 @@ int main() {
     frames++;
 
     draw_begin(&game);
-    draw_weird_gradient(&game);
+    draw_game_buffer(&game);
     draw_end(&game);
 
     ++game.x_offset;
