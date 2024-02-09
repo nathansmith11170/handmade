@@ -15,6 +15,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+#include "SDL.h"
 #include "SDL_audio.h"
 #include "SDL_blendmode.h"
 #include "SDL_error.h"
@@ -23,7 +24,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "SDL_surface.h"
 #include "SDL_timer.h"
 #include "SDL_video.h"
-#include <SDL.h>
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -59,7 +59,6 @@ typedef struct SdlContext {
 
 typedef struct Game {
   SdlContext sdl;
-  u32 fps;
   bool should_quit;
   u8 x_offset;
   u8 y_offset;
