@@ -5,6 +5,21 @@ However, the main concept of this is to build a game by hand following some
 tutorials related to the Handmade Hero video series along with other materials
 from that community. Check it out: https://hero.handmade.network/
 
+Very early on this will diverge from Handmade Hero because it's a completely
+different type of game (for example, no joystick/gamepad). However, following 
+Casey's methodologies and the lessons provided helps get it off the ground 
+regardling platform layer, renderer, audio, etc. I highly recommend his series.
+
+Additionally, I will not be fully adhering to Casey's non-use of libraries, since
+eventually I want to hardware accelerate the rendering. And this game will have 
+network code. Additionally, I'm utilizing SDL2 instead of writing directly for the
+platform I'm developing on.
+
+# Building
+
+Toolchain is LLVM-19, so clang-19, etc etc
+GNUMakefile, and use your favorite compilation database generator for clangd support. I use bear
+
 # The goals/milestones for the game are:
 
 ## The player may join and own a corporation

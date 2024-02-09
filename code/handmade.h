@@ -29,6 +29,17 @@ typedef uint64_t u64;
 typedef float f32;
 typedef double f64;
 
+typedef int bool32;
+
+#define true 1
+#define false 0
+
+#define ArraySize(array) (sizeof(array) / sizeof((array)[0]))
+
+#define Kilobytes(n) ((n) * 1024)
+#define Megabytes(n) ((Kilobytes(n)) * 1024)
+#define Gigabytes(n) ((Megabytes(n)) * 1024)
+
 const f32 pi = 3.1415927f;
 
 typedef struct GameOffscreenBuffer {
@@ -43,10 +54,37 @@ typedef struct GameSoundBuffer {
   u32 samples_per_sec;
   u32 running_sample_index;
   u32 bytes_per_sample;
+  u32 samples_needed;
 } GameSoundBuffer;
 
-void game_update_and_render(GameOffscreenBuffer *buffer, GameSoundBuffer *sound_buffer, u32 samples_count_to_output,
-                            u32 blue_offset, u32 green_offset);
+// Note(Nathan) this might not be the final form of input management, because we might want to do separate thread or
+// otherwise handle timing better, etc
+typedef struct GameKeyState {
+  int half_transition_count;
+  bool32 ended_down;
+} GameKeyState;
+
+typedef struct GameKeyboardInput {
+  GameKeyState speed_up;
+  GameKeyState speed_down;
+  GameKeyState strafe_left;
+  GameKeyState strafe_right;
+} GameKeyboardInput;
+
+typedef struct GameInput {
+  GameKeyboardInput inputs[16];
+} GameInput;
+
+typedef struct GameMemory {
+  bool32 is_initialized;
+  u64 permanent_store_size;
+  void *permanent_store;
+  u64 transient_storage_size;
+  void *transient_storage;
+} GameMemory;
+
+void game_update_and_render(GameMemory *memory, GameOffscreenBuffer *buffer, GameSoundBuffer *sound_buffer,
+                            GameKeyboardInput *inputs);
 
 #define HANDMADE_H
 #endif

@@ -33,9 +33,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 const char title[] = "Handmade";
 const int text_size = 12;
 
-typedef struct SdlContext {
-  int w;
-  int h;
+typedef struct GameInterface {
   SDL_Window *window;
   SDL_Renderer *renderer;
   SDL_Surface *backbuffer;
@@ -43,16 +41,12 @@ typedef struct SdlContext {
   SDL_AudioSpec AudioSettings;
   SDL_AudioDeviceID audio_device_id;
   GameSoundBuffer sound_buffer;
-} SdlContext;
+  GameMemory game_memory;
+  GameKeyboardInput inputs;
+  bool32 should_quit;
+} GameInterface;
 
-typedef struct Game {
-  SdlContext sdl;
-  bool should_quit;
-  u8 x_offset;
-  u8 y_offset;
-} Game;
-
-void set_sdl_context(SdlContext *sdlc, int w, int h, const char title[]) {
+void set_sdl_context(GameInterface *sdlc, int w, int h, const char title[]) {
   int result_code = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
   atexit(SDL_Quit);
   if (result_code < 0) {
@@ -64,85 +58,95 @@ void set_sdl_context(SdlContext *sdlc, int w, int h, const char title[]) {
   u8 bits_per_pixel = 32;
   sdlc->window = SDL_CreateWindow(title, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, w, h, SDL_WINDOW_RESIZABLE);
   sdlc->renderer = SDL_CreateRenderer(sdlc->window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-  sdlc->w = w;
-  sdlc->h = h;
   sdlc->backbuffer = SDL_CreateRGBSurface(0, w, h, bits_per_pixel, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
   SDL_SetSurfaceRLE(sdlc->backbuffer, 0);
   SDL_SetSurfaceBlendMode(sdlc->backbuffer, SDL_BLENDMODE_NONE);
   sdlc->screen = SDL_CreateTexture(sdlc->renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, w, h);
 }
 
-void resize_screen(Game *g, int w, int h) {
-  if (g->sdl.screen) {
-    SDL_DestroyTexture(g->sdl.screen);
+void reserve_game_memory(GameInterface *g) {
+  g->game_memory.permanent_store_size = Megabytes((u64)64);
+  g->game_memory.permanent_store = malloc(g->game_memory.permanent_store_size);
+  g->game_memory.transient_storage_size = Gigabytes((u64)4);
+  g->game_memory.transient_storage = malloc(g->game_memory.transient_storage_size);
+  g->game_memory.is_initialized = false;
+
+  if (!(g->game_memory.permanent_store) || !(g->game_memory.transient_storage)) {
+    printf("Failed to allocate game memory, exiting.");
+    exit(1);
   }
-  if (g->sdl.backbuffer) {
-    SDL_FreeSurface(g->sdl.backbuffer);
+}
+
+void resize_screen(GameInterface *g, int w, int h) {
+  if (g->screen) {
+    SDL_DestroyTexture(g->screen);
+  }
+  if (g->backbuffer) {
+    SDL_FreeSurface(g->backbuffer);
   }
   u8 bits_per_pixel = 32;
-  g->sdl.screen = SDL_CreateTexture(g->sdl.renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, w, h);
-  g->sdl.backbuffer = SDL_CreateRGBSurface(0, w, h, bits_per_pixel, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
-  SDL_SetSurfaceBlendMode(g->sdl.backbuffer, SDL_BLENDMODE_NONE);
-  SDL_SetSurfaceRLE(g->sdl.backbuffer, 0);
+  g->screen = SDL_CreateTexture(g->renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, w, h);
+  g->backbuffer = SDL_CreateRGBSurface(0, w, h, bits_per_pixel, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
+  SDL_SetSurfaceBlendMode(g->backbuffer, SDL_BLENDMODE_NONE);
+  SDL_SetSurfaceRLE(g->backbuffer, 0);
 }
 
-void draw_begin(Game *g) { SDL_RenderClear(g->sdl.renderer); }
+void draw_begin(GameInterface *g) { SDL_RenderClear(g->renderer); }
 
-void draw_game_buffer_queue_sound(Game *g) {
-  GameOffscreenBuffer buffer = {};
-  buffer.memory = g->sdl.backbuffer->pixels;
-  buffer.width = (u32)g->sdl.backbuffer->w;
-  buffer.height = (u32)g->sdl.backbuffer->h;
-  buffer.pitch = (u32)g->sdl.backbuffer->pitch;
+void draw_game_buffer_queue_sound(GameInterface *g) {
+  GameOffscreenBuffer buffer;
+  buffer.memory = g->backbuffer->pixels;
+  buffer.width = (u32)g->backbuffer->w;
+  buffer.height = (u32)g->backbuffer->h;
+  buffer.pitch = (u32)g->backbuffer->pitch;
 
   // Sound output test
-  u32 target_queue_bytes = (u32)(g->sdl.sound_buffer.samples_per_sec * g->sdl.sound_buffer.bytes_per_sample);
-  u32 bytes_to_write = target_queue_bytes - SDL_GetQueuedAudioSize(g->sdl.audio_device_id);
-  u32 samples_needed = bytes_to_write / g->sdl.sound_buffer.bytes_per_sample;
-  game_update_and_render(&buffer, &g->sdl.sound_buffer, samples_needed, g->x_offset, g->y_offset);
+  u32 target_queue_bytes = (u32)(g->sound_buffer.samples_per_sec * g->sound_buffer.bytes_per_sample);
+  u32 bytes_to_write = target_queue_bytes - SDL_GetQueuedAudioSize(g->audio_device_id);
+  g->sound_buffer.samples_needed = bytes_to_write / g->sound_buffer.bytes_per_sample;
+  game_update_and_render(&(g->game_memory), &buffer, &(g->sound_buffer), &(g->inputs));
 
-  SDL_QueueAudio(g->sdl.audio_device_id, g->sdl.sound_buffer.memory, bytes_to_write);
+  SDL_QueueAudio(g->audio_device_id, g->sound_buffer.memory, bytes_to_write);
 
   SDL_Surface *screen_buffer;
-  SDL_LockTextureToSurface(g->sdl.screen, nullptr, &screen_buffer);
-  SDL_BlitSurface(g->sdl.backbuffer, nullptr, screen_buffer, nullptr);
-  SDL_UnlockTexture(g->sdl.screen);
-  SDL_RenderCopy(g->sdl.renderer, g->sdl.screen, nullptr, nullptr);
+  SDL_LockTextureToSurface(g->screen, NULL, &screen_buffer);
+  SDL_BlitSurface(g->backbuffer, NULL, screen_buffer, NULL);
+  SDL_UnlockTexture(g->screen);
+  SDL_RenderCopy(g->renderer, g->screen, NULL, NULL);
 }
 
-void draw_end(Game *g) { SDL_RenderPresent(g->sdl.renderer); }
+void draw_end(GameInterface *g) { SDL_RenderPresent(g->renderer); }
 
-void init_sound_device(Game *g) {
+void init_sound_device(GameInterface *g) {
   // NOTE: Sound test
-  g->sdl.sound_buffer.samples_per_sec = 44100;
-  g->sdl.sound_buffer.running_sample_index = 0;
+  g->sound_buffer.samples_per_sec = 44100;
+  g->sound_buffer.running_sample_index = 0;
 
-  g->sdl.AudioSettings.freq = (int)g->sdl.sound_buffer.samples_per_sec;
-  g->sdl.AudioSettings.format = AUDIO_S16LSB;
-  g->sdl.AudioSettings.channels = 2;
-  g->sdl.AudioSettings.samples = 1024;
-  g->sdl.AudioSettings.callback = nullptr;
+  g->AudioSettings.freq = (int)g->sound_buffer.samples_per_sec;
+  g->AudioSettings.format = AUDIO_S16LSB;
+  g->AudioSettings.channels = 2;
+  g->AudioSettings.samples = 1024;
+  g->AudioSettings.callback = NULL;
 
-  g->sdl.audio_device_id =
-      SDL_OpenAudioDevice(nullptr, false, &g->sdl.AudioSettings, nullptr, SDL_AUDIO_ALLOW_ANY_CHANGE);
-  if (g->sdl.audio_device_id == 0) {
+  g->audio_device_id = SDL_OpenAudioDevice(NULL, false, &g->AudioSettings, NULL, SDL_AUDIO_ALLOW_ANY_CHANGE);
+  if (g->audio_device_id == 0) {
     const char *err = SDL_GetError();
     printf("Error opening audio device: %s\n", err);
   }
 
-  g->sdl.sound_buffer.bytes_per_sample = sizeof(i16) * g->sdl.AudioSettings.channels;
-  g->sdl.sound_buffer.memory = malloc(g->sdl.sound_buffer.samples_per_sec * g->sdl.sound_buffer.bytes_per_sample);
+  g->sound_buffer.bytes_per_sample = sizeof(i16) * g->AudioSettings.channels;
+  g->sound_buffer.memory = malloc(g->sound_buffer.samples_per_sec * g->sound_buffer.bytes_per_sample);
   printf("Initialised an Audio device at frequency %d Hz, %d Channels, buffer "
          "size %d\n",
-         g->sdl.AudioSettings.freq, g->sdl.AudioSettings.channels, g->sdl.AudioSettings.samples);
+         g->AudioSettings.freq, g->AudioSettings.channels, g->AudioSettings.samples);
 
-  if (g->sdl.AudioSettings.format != AUDIO_S16LSB) {
+  if (g->AudioSettings.format != AUDIO_S16LSB) {
     printf("Oops! We didn't get AUDIO_S16LSB as our sample format!\n");
-    SDL_CloseAudioDevice(g->sdl.audio_device_id);
+    SDL_CloseAudioDevice(g->audio_device_id);
   }
 }
 
-void handle_event(Game *g, SDL_Event *event) {
+void handle_event(GameInterface *g, SDL_Event *event) {
   switch (event->type) {
   case SDL_QUIT: {
     printf("SDL_QUIT\n");
@@ -159,8 +163,30 @@ void handle_event(Game *g, SDL_Event *event) {
     //   was_down = true;
     // }
 
+    if (keyCode == SDLK_w && event->key.state == SDL_RELEASED) {
+      g->inputs.speed_up.ended_down = false;
+    }
+    if (keyCode == SDLK_a && event->key.state == SDL_RELEASED) {
+      g->inputs.strafe_left.ended_down = false;
+    }
+    if (keyCode == SDLK_s && event->key.state == SDL_RELEASED) {
+      g->inputs.speed_down.ended_down = false;
+    }
+    if (keyCode == SDLK_d && event->key.state == SDL_RELEASED) {
+      g->inputs.strafe_right.ended_down = false;
+    }
+
     if (keyCode == SDLK_w && event->key.state == SDL_PRESSED) {
-      g->y_offset += 2;
+      g->inputs.speed_up.ended_down = true;
+    }
+    if (keyCode == SDLK_a && event->key.state == SDL_PRESSED) {
+      g->inputs.strafe_left.ended_down = true;
+    }
+    if (keyCode == SDLK_s && event->key.state == SDL_PRESSED) {
+      g->inputs.speed_down.ended_down = true;
+    }
+    if (keyCode == SDLK_d && event->key.state == SDL_PRESSED) {
+      g->inputs.strafe_right.ended_down = true;
     }
   } break;
 
@@ -179,13 +205,19 @@ void handle_event(Game *g, SDL_Event *event) {
   }
 }
 
-int main() {
-  Game game = {};
-  set_sdl_context(&game.sdl, 1024, 728, title);
+int main(void) {
+  GameInterface game;
+  set_sdl_context(&game, 1024, 728, title);
+  reserve_game_memory(&game);
   game.should_quit = false;
 
+  game.inputs.speed_down.ended_down = false;
+  game.inputs.speed_up.ended_down = false;
+  game.inputs.strafe_left.ended_down = false;
+  game.inputs.strafe_right.ended_down = false;
+
   init_sound_device(&game);
-  bool is_sound_paused = true;
+  bool32 is_sound_paused = true;
   u64 last_mark = SDL_GetPerformanceCounter();
   u32 frames = 0;
   while (!game.should_quit) {
@@ -195,11 +227,9 @@ int main() {
     draw_game_buffer_queue_sound(&game);
     draw_end(&game);
 
-    ++game.x_offset;
-
     if (is_sound_paused) {
       is_sound_paused = false;
-      SDL_PauseAudioDevice(game.sdl.audio_device_id, is_sound_paused);
+      SDL_PauseAudioDevice(game.audio_device_id, is_sound_paused);
     }
 
     SDL_Event event;
@@ -213,7 +243,7 @@ int main() {
       frames = 0;
     };
   }
-  free(game.sdl.sound_buffer.memory);
-  SDL_CloseAudioDevice(game.sdl.audio_device_id);
+  free(game.sound_buffer.memory);
+  SDL_CloseAudioDevice(game.audio_device_id);
   exit(0);
 }
