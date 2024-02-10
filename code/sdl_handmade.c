@@ -46,7 +46,7 @@ typedef struct GameInterface {
   bool32 should_quit;
 } GameInterface;
 
-void set_sdl_context(GameInterface *sdlc, int w, int h, const char title[]) {
+void set_sdl_context(GameInterface *g, int w, int h, const char title[]) {
   int result_code = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
   atexit(SDL_Quit);
   if (result_code < 0) {
@@ -56,12 +56,12 @@ void set_sdl_context(GameInterface *sdlc, int w, int h, const char title[]) {
   }
 
   u8 bits_per_pixel = 32;
-  sdlc->window = SDL_CreateWindow(title, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, w, h, SDL_WINDOW_RESIZABLE);
-  sdlc->renderer = SDL_CreateRenderer(sdlc->window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-  sdlc->backbuffer = SDL_CreateRGBSurface(0, w, h, bits_per_pixel, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
-  SDL_SetSurfaceRLE(sdlc->backbuffer, 0);
-  SDL_SetSurfaceBlendMode(sdlc->backbuffer, SDL_BLENDMODE_NONE);
-  sdlc->screen = SDL_CreateTexture(sdlc->renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, w, h);
+  g->window = SDL_CreateWindow(title, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, w, h, SDL_WINDOW_RESIZABLE);
+  g->renderer = SDL_CreateRenderer(g->window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+  g->backbuffer = SDL_CreateRGBSurface(0, w, h, bits_per_pixel, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
+  SDL_SetSurfaceRLE(g->backbuffer, 0);
+  SDL_SetSurfaceBlendMode(g->backbuffer, SDL_BLENDMODE_NONE);
+  g->screen = SDL_CreateTexture(g->renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, w, h);
 }
 
 void reserve_game_memory(GameInterface *g) {
