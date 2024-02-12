@@ -23,7 +23,6 @@ void render_weird_gradient(GameState *game_state, GameOffscreenBuffer *buffer) {
 }
 
 void output_game_sound(GameState *game_state, GameSoundBuffer *sound_buffer) {
-
   i16 tone_volume = 12000;
   f32 wave_period = (f32)(sound_buffer->samples_per_sec) / (f32)(game_state->tone_hz);
   if (sound_buffer->samples_needed) {
