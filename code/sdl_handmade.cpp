@@ -14,7 +14,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-#include "handmade.c"
+#include "handmade.cpp"
 #include "handmade.h"
 
 #include "SDL.h"
@@ -23,6 +23,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "SDL_error.h"
 #include "SDL_pixels.h"
 #include "SDL_render.h"
+#include "SDL_rwops.h"
 #include "SDL_surface.h"
 #include "SDL_timer.h"
 #include "SDL_video.h"
@@ -30,10 +31,27 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <stdio.h>
 #include <stdlib.h>
 
-const char title[] = "Handmade";
-const int text_size = 12;
+internal DebugReadFileResult DEBUG_platform_read_entire_file(const char *file_name, u64 *data_size) {
+  DebugReadFileResult result = {0, 0};
+  result.contents = SDL_LoadFile(file_name, &(result.contents_size));
+  return result;
+}
 
-typedef struct GameInterface {
+internal void DEBUG_platform_free_file_memory(void *memory) { SDL_free(memory); }
+
+internal bool32 DEBUG_platform_write_entire_file(const char *file_name, u64 memory_size, const void *memory) {
+  SDL_RWops *io = SDL_RWFromFile(file_name, "w+b");
+  if (io == NULL) {
+    const char *err = SDL_GetError();
+    printf("Error opening file for write: %s", err);
+    return false;
+  }
+  u64 written = SDL_RWwrite(io, memory, sizeof(u8), memory_size);
+  SDL_RWclose(io);
+  return written == memory_size;
+}
+
+struct GameInterface {
   SDL_Window *window;
   SDL_Renderer *renderer;
   SDL_Surface *backbuffer;
@@ -44,9 +62,9 @@ typedef struct GameInterface {
   GameMemory game_memory;
   GameKeyboardInput inputs;
   bool32 should_quit;
-} GameInterface;
+};
 
-void set_sdl_context(GameInterface *g, int w, int h, const char title[]) {
+internal void set_sdl_context(GameInterface *g, int w, int h, const char title[]) {
   int result_code = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
   atexit(SDL_Quit);
   if (result_code < 0) {
@@ -64,7 +82,7 @@ void set_sdl_context(GameInterface *g, int w, int h, const char title[]) {
   g->screen = SDL_CreateTexture(g->renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, w, h);
 }
 
-void reserve_game_memory(GameInterface *g) {
+internal void reserve_game_memory(GameInterface *g) {
   g->game_memory.permanent_store_size = Megabytes((u64)64);
   g->game_memory.permanent_store = malloc(g->game_memory.permanent_store_size);
   g->game_memory.transient_storage_size = Gigabytes((u64)4);
@@ -77,7 +95,7 @@ void reserve_game_memory(GameInterface *g) {
   }
 }
 
-void resize_screen(GameInterface *g, int w, int h) {
+internal void resize_screen(GameInterface *g, int w, int h) {
   if (g->screen) {
     SDL_DestroyTexture(g->screen);
   }
@@ -91,9 +109,9 @@ void resize_screen(GameInterface *g, int w, int h) {
   SDL_SetSurfaceRLE(g->backbuffer, 0);
 }
 
-void draw_begin(GameInterface *g) { SDL_RenderClear(g->renderer); }
+internal void draw_begin(GameInterface *g) { SDL_RenderClear(g->renderer); }
 
-void draw_game_buffer_queue_sound(GameInterface *g) {
+internal void draw_game_buffer_queue_sound(GameInterface *g) {
   GameOffscreenBuffer buffer;
   buffer.memory = g->backbuffer->pixels;
   buffer.width = (u32)g->backbuffer->w;
@@ -115,9 +133,9 @@ void draw_game_buffer_queue_sound(GameInterface *g) {
   SDL_RenderCopy(g->renderer, g->screen, NULL, NULL);
 }
 
-void draw_end(GameInterface *g) { SDL_RenderPresent(g->renderer); }
+internal void draw_end(GameInterface *g) { SDL_RenderPresent(g->renderer); }
 
-void init_sound_device(GameInterface *g) {
+internal void init_sound_device(GameInterface *g) {
   // NOTE: Sound test
   g->sound_buffer.samples_per_sec = 44100;
   g->sound_buffer.running_sample_index = 0;
@@ -146,7 +164,7 @@ void init_sound_device(GameInterface *g) {
   }
 }
 
-void handle_event(GameInterface *g, SDL_Event *event) {
+internal void handle_event(GameInterface *g, SDL_Event *event) {
   switch (event->type) {
   case SDL_QUIT: {
     printf("SDL_QUIT\n");
@@ -207,7 +225,7 @@ void handle_event(GameInterface *g, SDL_Event *event) {
 
 int main(void) {
   GameInterface game;
-  set_sdl_context(&game, 1024, 728, title);
+  set_sdl_context(&game, 1024, 728, "Handmade");
   reserve_game_memory(&game);
   game.should_quit = false;
 

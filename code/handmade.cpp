@@ -1,13 +1,13 @@
 #include "handmade.h"
 #include <math.h> // TODO(Nathan) Remove dependency, implement sine
 
-typedef struct GameState {
+struct GameState {
   u32 blue_offset;
   u32 green_offset;
   u32 tone_hz;
-} GameState;
+};
 
-void render_weird_gradient(GameState *game_state, GameOffscreenBuffer *buffer) {
+internal void render_weird_gradient(GameState *game_state, GameOffscreenBuffer *buffer) {
   u8 *row_ptr = (u8 *)(buffer->memory);
   for (u32 y = 0; y < buffer->height; ++y) {
     u32 *pixel_ptr = (u32 *)(row_ptr);
@@ -22,13 +22,13 @@ void render_weird_gradient(GameState *game_state, GameOffscreenBuffer *buffer) {
   }
 }
 
-void output_game_sound(GameState *game_state, GameSoundBuffer *sound_buffer) {
+internal void output_game_sound(GameState *game_state, GameSoundBuffer *sound_buffer) {
   i16 tone_volume = 12000;
   f32 wave_period = (f32)(sound_buffer->samples_per_sec) / (f32)(game_state->tone_hz);
   if (sound_buffer->samples_needed) {
     i16 *sample_out = (i16 *)sound_buffer->memory;
     for (u32 sample_i = 0; sample_i < sound_buffer->samples_needed; ++sample_i) {
-      f32 t = 2.0f * pi * (f32)(sound_buffer->running_sample_index) / wave_period;
+      f32 t = 2.0f * PI32 * (f32)(sound_buffer->running_sample_index) / wave_period;
       f32 sine_value = sinf(t);
       i16 sample_val = (i16)(sine_value * tone_volume);
       if (sound_buffer->bytes_per_sample == 4) {
@@ -43,8 +43,8 @@ void output_game_sound(GameState *game_state, GameSoundBuffer *sound_buffer) {
   }
 }
 
-void game_update_and_render(GameMemory *memory, GameOffscreenBuffer *buffer, GameSoundBuffer *sound_buffer,
-                            GameKeyboardInput *input) {
+internal void game_update_and_render(GameMemory *memory, GameOffscreenBuffer *buffer, GameSoundBuffer *sound_buffer,
+                                     GameKeyboardInput *input) {
   GameState *game_state = (GameState *)memory->permanent_store;
   if (!(memory->is_initialized)) {
     game_state->tone_hz = 256;
@@ -79,7 +79,7 @@ void game_update_and_render(GameMemory *memory, GameOffscreenBuffer *buffer, Gam
     (game_state->green_offset)++;
   }
   if (input->speed_down.ended_down) {
-    (game_state->green_offset--);
+    (game_state->green_offset)--;
   }
   if (input->strafe_left.ended_down) {
     (game_state->blue_offset)++;
