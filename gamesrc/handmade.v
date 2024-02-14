@@ -72,7 +72,7 @@ pub mut:
 	strafe_right GameKeyState
 }
 
-pub fn (mut g Game) game_update_fill_buffers(platform Platform) {
+pub fn (mut g Game) update_fill_buffers(platform Platform) {
 	unsafe {
 		game_state := &GameState(g.memory.permanent_store[0..sizeof(GameState)].data)
 

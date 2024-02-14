@@ -179,7 +179,7 @@ fn main() {
 		target_queue_bytes := game.sound_buffer.samples_per_sec * game.sound_buffer.bytes_per_sample
 		bytes_to_write := target_queue_bytes - sdl.get_queued_audio_size(sdlc.audio_device_id)
 		game.sound_buffer.samples_needed = bytes_to_write / game.sound_buffer.bytes_per_sample
-		game.game_update_fill_buffers(platform_services)
+		game.update_fill_buffers(platform_services)
 		if game.sound_buffer.enabled {
 			sdl.queue_audio(sdlc.audio_device_id, game.sound_buffer.memory.data, u32(bytes_to_write))
 		}
