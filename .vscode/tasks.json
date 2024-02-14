@@ -3,14 +3,14 @@
     // for the documentation about the tasks.json format
     "version": "2.0.0",
     "tasks": [
-      {
-        "type": "shell",
-        "label": "run build.sh",
-        "command": "${workspaceFolder}/code/build.sh",
-        "group": {
-          "kind": "build",
-          "isDefault": true
-        },
-      }
+        {
+            "type": "shell",
+            "label": "run build.sh",
+            "command": "${workspaceFolder}/platform/build_debug.sh",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+        }
     ]
-  }
+}

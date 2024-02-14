@@ -5,9 +5,9 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "C Launch Handmade",
             "type": "lldb",
             "request": "launch",
+            "name": "Debug",
             "program": "${workspaceFolder}/build/handmade",
             "args": [],
             "cwd": "${workspaceFolder}",
