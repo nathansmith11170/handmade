@@ -84,7 +84,7 @@ fn main() {
 		return
 	}
 
-	// TODO(Nathan): Handle window resolution (size) in a config file
+	// TODO(Nathan): Handle window resolution (size), vsync, and other display settings in a config file
 	sdlc.window = sdl.create_window('Handmade'.str, sdl.windowpos_undefined, sdl.windowpos_undefined,
 		1024, 768, u32(sdl.WindowFlags.shown))
 	sdlc.renderer = sdl.create_renderer(sdlc.window, 0, u32(sdl.RendererFlags.accelerated))
@@ -241,6 +241,7 @@ fn main() {
 		frame_time := f32(current_counter - last_counter) / f32(sdl.get_performance_frequency())
 		last_counter = current_counter
 		accumulator += frame_time
+		println('Estimated instantaneous FPS: ${1.0 / frame_time}s')
 
 		for accumulator > game_tick_seconds {
 			game.update(platform_services, game_clock)
