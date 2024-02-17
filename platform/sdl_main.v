@@ -1,4 +1,4 @@
-/*
+ /*
 <name TBD>, a handmade game about simulating things in space
 Copyright (C) 2024 Nathan Smith
 
@@ -84,10 +84,10 @@ fn main() {
 		return
 	}
 
-	// TODO(Nathan): Handle window resolution (size) in config file
+	// TODO(Nathan): Handle window resolution (size) in a config file
 	sdlc.window = sdl.create_window('Handmade'.str, sdl.windowpos_undefined, sdl.windowpos_undefined,
 		1024, 768, u32(sdl.WindowFlags.shown))
-	sdlc.renderer = sdl.create_renderer(sdlc.window, 0, u32(sdl.RendererFlags.accelerated) | u32(sdl.RendererFlags.presentvsync))
+	sdlc.renderer = sdl.create_renderer(sdlc.window, 0, u32(sdl.RendererFlags.accelerated))
 	sdlc.screen = sdl.create_texture(sdlc.renderer, .argb8888, .streaming, 1024, 768)
 
 	request_spec := sdl.AudioSpec{
@@ -165,36 +165,17 @@ fn main() {
 	platform_services := SdlPlatformServices{}
 
 	mut should_close := false
-	mut counted_frames := u32(0)
-	mut last_time_mark := sdl.get_ticks()
+	game_tick_seconds := f32(.03333333)
+	mut game_clock := gamesrc.Time64{
+		whole_seconds: 0
+		fraction: 0
+	}
+	mut accumulator := f32(0.0)
+
+	mut last_counter := sdl.get_performance_counter()
 	mut is_audio_paused := true
+	game.update(platform_services, game_clock)
 	for {
-		current_time_mark := sdl.get_ticks()
-		if current_time_mark - last_time_mark >= 1000 {
-			println('FPS: ${counted_frames}')
-			counted_frames = 0
-			last_time_mark = current_time_mark
-		}
-
-		target_queue_bytes := game.sound_buffer.samples_per_sec * game.sound_buffer.bytes_per_sample
-		bytes_to_write := target_queue_bytes - sdl.get_queued_audio_size(sdlc.audio_device_id)
-		game.sound_buffer.samples_needed = bytes_to_write / game.sound_buffer.bytes_per_sample
-		game.update_fill_buffers(platform_services)
-		if game.sound_buffer.enabled {
-			sdl.queue_audio(sdlc.audio_device_id, game.sound_buffer.memory.data, u32(bytes_to_write))
-		}
-
-		sdlc.draw_begin()
-		sdlc.draw_frame(game.offscreen_buffer)
-		sdlc.draw_end()
-
-		if is_audio_paused {
-			is_audio_paused = false
-			sdl.pause_audio_device(sdlc.audio_device_id, int(is_audio_paused))
-		}
-
-		counted_frames++
-
 		evt := sdl.Event{}
 		for 0 < sdl.poll_event(&evt) {
 			match evt.@type {
@@ -245,23 +226,52 @@ fn main() {
 					}
 				}
 				.windowevent {
-					handle_window_event(evt.window)
+					match evt.window.event {
+						u8(sdl.WindowEventID.size_changed) {
+							println('Window size changed (${evt.window.data1}, ${evt.window.data2})')
+						}
+						else {}
+					}
 				}
 				else {}
 			}
 		}
+		// TODO(Nathan) get frame time, add to accumulator, while accumulator has more time than delta-t, run game ticks, advance clock
+		current_counter := sdl.get_performance_counter()
+		frame_time := f32(current_counter - last_counter) / f32(sdl.get_performance_frequency())
+		last_counter = current_counter
+		accumulator += frame_time
+
+		for accumulator > game_tick_seconds {
+			game.update(platform_services, game_clock)
+			game_clock = game_clock.add(game_tick_seconds)
+			accumulator -= game_tick_seconds
+		}
+		// TODO(Nathan) If window is not in focus, cap frames to save system resources
+
+		// TODO(Nathan) For now, there may be some ms latency in audio
+		target_queue_bytes := int(
+			f32(game.sound_buffer.samples_per_sec * game.sound_buffer.bytes_per_sample * game_tick_seconds * 2) +
+			0.5)
+		bytes_to_write := target_queue_bytes - sdl.get_queued_audio_size(sdlc.audio_device_id)
+		game.sound_buffer.samples_needed = int(bytes_to_write / game.sound_buffer.bytes_per_sample)
+		game.fill_buffers(platform_services)
+		if game.sound_buffer.enabled {
+			sdl.queue_audio(sdlc.audio_device_id, game.sound_buffer.memory.data, u32(bytes_to_write))
+		}
+
+		sdlc.draw_begin()
+		sdlc.draw_frame(game.offscreen_buffer)
+		sdlc.draw_end()
+
+		if is_audio_paused {
+			is_audio_paused = false
+			sdl.pause_audio_device(sdlc.audio_device_id, int(is_audio_paused))
+		}
+
 		if should_close {
 			break
 		}
-	}
-}
-
-fn handle_window_event(window_event sdl.WindowEvent) {
-	match window_event.event {
-		u8(sdl.WindowEventID.size_changed) {
-			println('Window size changed (${window_event.data1}, ${window_event.data2})')
-		}
-		else {}
 	}
 }
 

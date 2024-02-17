@@ -72,7 +72,7 @@ pub mut:
 	strafe_right GameKeyState
 }
 
-pub fn (mut g Game) update_fill_buffers(platform Platform) {
+pub fn (mut g Game) update(platform Platform, t Time64) {
 	unsafe {
 		game_state := &GameState(g.memory.permanent_store[0..sizeof(GameState)].data)
 
@@ -93,6 +93,12 @@ pub fn (mut g Game) update_fill_buffers(platform Platform) {
 		if g.key_input.strafe_right.ended_down {
 			game_state.blue_offset--
 		}
+	}
+}
+
+pub fn (mut g Game) fill_buffers(platform Platform) {
+	unsafe {
+		game_state := &GameState(g.memory.permanent_store[0..sizeof(GameState)].data)
 
 		game_state.render_weird_gradient(mut g.offscreen_buffer)
 		if g.sound_buffer.enabled {
@@ -111,11 +117,11 @@ mut:
 fn (g GameState) output_sine(mut buf SoundBuffer) {
 	unsafe {
 		tone_volume := 9000
-		wave_period := f64(buf.samples_per_sec) / f64(g.tone_hz)
+		wave_period := f32(buf.samples_per_sec) / f32(g.tone_hz)
 
 		sample_out := &i16(buf.memory.data)
 		for _ in 0 .. buf.samples_needed {
-			sine_value := math.sin(math.tau * f64(buf.t) / wave_period)
+			sine_value := math.sinf(math.tau * f32(buf.t) / wave_period)
 
 			sample_val := i16(sine_value * tone_volume)
 
@@ -125,7 +131,7 @@ fn (g GameState) output_sine(mut buf SoundBuffer) {
 			sample_out++
 
 			buf.t++
-			if f64(buf.t) > wave_period {
+			if f32(buf.t) > wave_period {
 				buf.t = 1
 			}
 		}
