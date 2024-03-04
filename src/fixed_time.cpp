@@ -23,11 +23,11 @@ struct Time64 {
 };
 
 uint64_t Time64ToU64(Time64 t) {
-  return (unsigned long long)(t.wholeSeconds) << 32 | t.fraction;
+  return (uint64_t)(t.wholeSeconds) << 32 | t.fraction;
 }
 
 Time64 Time64AddFloat(Time64 t, float addend) {
-  uint64_t addendU64 = (uint64_t)(addend * std::pow(2, 32) + 0.5f);
-  uint64_t res = Time64ToU64(t) + addendU64;
+  uint64_t addendU64{(uint64_t)(addend * std::pow(2, 32) + 0.5f)};
+  uint64_t res{Time64ToU64(t) + addendU64};
   return Time64{(uint32_t)(res >> 32), (uint32_t)(res & 0xFFFFFFFF)};
 }

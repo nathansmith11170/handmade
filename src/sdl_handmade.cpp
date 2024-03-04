@@ -85,7 +85,7 @@ static void drawEnd(SdlContext sdlc) { SDL_RenderPresent(sdlc.renderer); }
 
 int main() {
   SdlContext sdlc{};
-  auto result = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
+  auto result{SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)};
   if (result < 0) {
     const char *err = SDL_GetError();
     std::cout << "Error initializing SDL: " << err << '\n';
@@ -112,8 +112,8 @@ int main() {
     std::cout << "Error creating texture: " << err << '\n';
   }
 
-  auto requestedSpec =
-      SDL_AudioSpec{44100, AUDIO_S16LSB, 2, 0, 0, 0, 0, nullptr, nullptr};
+  SDL_AudioSpec requestedSpec{44100, AUDIO_S16LSB, 2,      0, 0, 0,
+                              0,     nullptr,      nullptr};
   sdlc.audioDeviceId = SDL_OpenAudioDevice(
       nullptr, false, &requestedSpec, nullptr,
       SDL_AUDIO_ALLOW_FREQUENCY_CHANGE | SDL_AUDIO_ALLOW_CHANNELS_CHANGE);
@@ -157,7 +157,7 @@ int main() {
   float fpsPrintDelay{};
   int64_t frameCount{};
 
-  uint64_t lastCounter = SDL_GetPerformanceCounter();
+  uint64_t lastCounter{SDL_GetPerformanceCounter()};
   bool isAudioPaused{true};
   updateGame(&gameMemory, &gameInput);
   while (!shouldClose) {
@@ -212,9 +212,9 @@ int main() {
       }
     }
 
-    uint64_t currentCounter = SDL_GetPerformanceCounter();
-    float frameTime = (float)(currentCounter - lastCounter) /
-                      (float)(SDL_GetPerformanceFrequency());
+    uint64_t currentCounter{SDL_GetPerformanceCounter()};
+    float frameTime{(float)(currentCounter - lastCounter) /
+                    (float)(SDL_GetPerformanceFrequency())};
     lastCounter = currentCounter;
     accumulator += frameTime;
     fpsPrintDelay += frameTime;
@@ -231,12 +231,12 @@ int main() {
       accumulator -= gameTickSeconds;
     }
 
-    int32_t targetQueueBytes =
+    int32_t targetQueueBytes{
         (int32_t)((float)(soundBuffer.samplesPerSec *
                           soundBuffer.bytesPerSample * gameTickSeconds * 2) +
-                  0.5f);
-    int32_t bytesToWrite =
-        targetQueueBytes - SDL_GetQueuedAudioSize(sdlc.audioDeviceId);
+                  0.5f)};
+    uint32_t bytesToWrite{targetQueueBytes -
+                          SDL_GetQueuedAudioSize(sdlc.audioDeviceId)};
     soundBuffer.samplesNeeded =
         bytesToWrite > 0 ? bytesToWrite / soundBuffer.bytesPerSample : 0;
     fillBuffers(&gameMemory, &gameOffscreenBuffer, &soundBuffer);
