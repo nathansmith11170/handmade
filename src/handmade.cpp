@@ -19,12 +19,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <numbers>
 
 static void renderWeirdGradient(GameState *state, GameOffscreenBuffer *buffer) {
-  unsigned char *row = buffer->memory;
+  uint8_t *row = buffer->memory;
   for (int y = 0; y < buffer->height; ++y) {
-    unsigned int *pixel = (unsigned int *)row;
+    uint32_t *pixel = (uint32_t *)row;
     for (int x = 0; x < buffer->width; ++x) {
-      unsigned char blue = (unsigned char)(x + state->blueOffset);
-      unsigned char green = (unsigned char)(y + state->greenOffset);
+      uint8_t blue = (uint8_t)(x + state->blueOffset);
+      uint8_t green = (uint8_t)(y + state->greenOffset);
 
       *pixel++ = ((green << 8) | blue);
     }
@@ -34,15 +34,15 @@ static void renderWeirdGradient(GameState *state, GameOffscreenBuffer *buffer) {
 }
 
 static void outputSine(GameState *state, GameSoundBuffer *buffer) {
-  short toneVolume = 6000;
-  int wavePeriod = buffer->samplesPerSec / state->toneHz;
+  int16_t toneVolume = 6000;
+  int32_t wavePeriod = buffer->samplesPerSec / state->toneHz;
 
-  short *sampleOut = buffer->memory;
+  int16_t *sampleOut = buffer->memory;
   for (int sampleIndex = 0; sampleIndex < buffer->samplesNeeded;
        ++sampleIndex) {
     float sineValue =
         sinf(2 * std::numbers::pi * (float)(buffer->t) / wavePeriod);
-    short sampleValue = (short)(sineValue * toneVolume);
+    int16_t sampleValue = (short)(sineValue * toneVolume);
     *sampleOut++ = sampleValue;
     *sampleOut++ = sampleValue;
 

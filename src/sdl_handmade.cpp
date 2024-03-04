@@ -40,9 +40,9 @@ struct SdlContext {
 
 static void drawBegin(SdlContext sdlc) { SDL_RenderClear(sdlc.renderer); }
 static void drawFrame(SdlContext sdlc, GameOffscreenBuffer offscreenBuf) {
-  int screenWidth{};
-  int screenHeight{};
-  int screenPitch{};
+  int32_t screenWidth{};
+  int32_t screenHeight{};
+  int32_t screenPitch{};
   void *screenPixels{};
   SDL_QueryTexture(sdlc.screen, nullptr, nullptr, &screenWidth, &screenHeight);
   SDL_LockTexture(sdlc.screen, nullptr, &screenPixels, &screenPitch);
@@ -85,7 +85,7 @@ static void drawEnd(SdlContext sdlc) { SDL_RenderPresent(sdlc.renderer); }
 
 int main() {
   SdlContext sdlc{};
-  int result = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
+  auto result = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
   if (result < 0) {
     const char *err = SDL_GetError();
     std::cout << "Error initializing SDL: " << err << '\n';
@@ -155,9 +155,9 @@ int main() {
   Time64 gameClock{};
   float accumulator{};
   float fpsPrintDelay{};
-  long frameCount{};
+  int64_t frameCount{};
 
-  unsigned long lastCounter = SDL_GetPerformanceCounter();
+  uint64_t lastCounter = SDL_GetPerformanceCounter();
   bool isAudioPaused{true};
   updateGame(&gameMemory, &gameInput);
   while (!shouldClose) {
@@ -212,7 +212,7 @@ int main() {
       }
     }
 
-    unsigned long currentCounter = SDL_GetPerformanceCounter();
+    uint64_t currentCounter = SDL_GetPerformanceCounter();
     float frameTime = (float)(currentCounter - lastCounter) /
                       (float)(SDL_GetPerformanceFrequency());
     lastCounter = currentCounter;
@@ -231,11 +231,11 @@ int main() {
       accumulator -= gameTickSeconds;
     }
 
-    int targetQueueBytes =
-        (int)((float)(soundBuffer.samplesPerSec * soundBuffer.bytesPerSample *
-                      gameTickSeconds * 2) +
-              0.5f);
-    int bytesToWrite =
+    int32_t targetQueueBytes =
+        (int32_t)((float)(soundBuffer.samplesPerSec *
+                          soundBuffer.bytesPerSample * gameTickSeconds * 2) +
+                  0.5f);
+    int32_t bytesToWrite =
         targetQueueBytes - SDL_GetQueuedAudioSize(sdlc.audioDeviceId);
     soundBuffer.samplesNeeded =
         bytesToWrite > 0 ? bytesToWrite / soundBuffer.bytesPerSample : 0;

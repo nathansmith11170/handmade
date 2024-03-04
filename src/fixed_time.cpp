@@ -15,18 +15,19 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 #include <cmath>
+#include <cstdint>
 
 struct Time64 {
-  unsigned int wholeSeconds;
-  unsigned int fraction;
+  uint32_t wholeSeconds;
+  uint32_t fraction;
 };
 
-unsigned long long Time64ToU64(Time64 t) {
+uint64_t Time64ToU64(Time64 t) {
   return (unsigned long long)(t.wholeSeconds) << 32 | t.fraction;
 }
 
 Time64 Time64AddFloat(Time64 t, float addend) {
-  unsigned long addendU64 = (unsigned long)(addend * std::pow(2, 32) + 0.5f);
-  unsigned long res = Time64ToU64(t) + addendU64;
-  return Time64{(unsigned int)(res >> 32), (unsigned int)(res & 0xFFFFFFFF)};
+  uint64_t addendU64 = (uint64_t)(addend * std::pow(2, 32) + 0.5f);
+  uint64_t res = Time64ToU64(t) + addendU64;
+  return Time64{(uint32_t)(res >> 32), (uint32_t)(res & 0xFFFFFFFF)};
 }

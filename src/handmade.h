@@ -14,8 +14,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+#include <cstdint>
 #if !defined(HANDMADE_H)
-
 struct DebugReadFileResult {
   void *data;
   int fileSize;
@@ -27,21 +27,21 @@ struct DebugReadFileResult {
 //                                          void *memory);
 
 struct GameOffscreenBuffer {
-  unsigned char *memory;
-  int height, width, pitch;
+  uint8_t *memory;
+  int32_t height, width, pitch;
 };
 
 struct GameSoundBuffer {
-  short *memory;
-  int samplesPerSec;
-  int t;
-  int bytesPerSample;
-  int samplesNeeded;
+  int16_t *memory;
+  int32_t samplesPerSec;
+  int32_t t;
+  int32_t bytesPerSample;
+  int32_t samplesNeeded;
   bool enabled;
 };
 
 struct GameButtonState {
-  int halfTransitionCount;
+  int32_t halfTransitionCount;
   bool endedDown;
 };
 
@@ -53,18 +53,18 @@ struct GameInput {
 };
 
 struct GameState {
-  int blueOffset;
-  int greenOffset;
-  int toneHz;
+  int32_t blueOffset;
+  int32_t greenOffset;
+  int32_t toneHz;
 };
 
 struct GameMemory {
   bool isInitialized;
 
-  long long permanentStorageSize;
+  uint64_t permanentStorageSize;
   unsigned char *permanentStorage;
 
-  long long transientStorageSize;
+  uint64_t transientStorageSize;
   unsigned char *transientStorage;
 };
 
