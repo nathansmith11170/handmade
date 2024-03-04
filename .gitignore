@@ -1,24 +1,18 @@
 # Binaries for programs and plugins
-main
-handmade_v
 *.exe
 *.exe~
 *.so
 *.dylib
 *.dll
-build
 
 # Ignore binary output folders
-bin/
+build
 
 # Ignore common editor/system specific metadata
 .DS_Store
 .idea/
 *.iml
+.cache
 
 # ENV
 .env
-
-# vweb and database
-*.db
-*.js

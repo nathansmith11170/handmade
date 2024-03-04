@@ -1,0 +1,10 @@
+{
+  "cmake.sourceDirectory": "/home/nathan/repos/handmade/src",
+  "cmake.loggingLevel": "debug",
+  "clangd.arguments": [
+    "-log=verbose",
+    "-pretty",
+    "--background-index",
+    "--compile-commands-dir=/build"
+  ]
+}

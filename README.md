@@ -17,8 +17,8 @@ platform I'm developing on.
 
 # Building
 
-Toolchain is LLVM-19, so clang-19, etc etc
-GNUMakefile, and use your favorite compilation database generator for clangd support. I use bear
+Toolchain is LLVM-17, so clang-17, etc etc
+Cmake
 
 # The goals/milestones for the game are:
 

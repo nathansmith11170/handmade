@@ -14,11 +14,19 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+#include <cmath>
 
-module interfaces
+struct Time64 {
+  unsigned int wholeSeconds;
+  unsigned int fraction;
+};
 
-pub interface Platform {
-	debug_read_entire_file(string) (voidptr, u32)
-	debug_write_entire_file(string, u32, voidptr) bool
-	debug_free_file_memory(voidptr)
+unsigned long long Time64ToU64(Time64 t) {
+  return (unsigned long long)(t.wholeSeconds) << 32 | t.fraction;
+}
+
+Time64 Time64AddFloat(Time64 t, float addend) {
+  unsigned long addendU64 = (unsigned long)(addend * std::pow(2, 32) + 0.5f);
+  unsigned long res = Time64ToU64(t) + addendU64;
+  return Time64{(unsigned int)(res >> 32), (unsigned int)(res & 0xFFFFFFFF)};
 }
