@@ -17,8 +17,7 @@ platform I'm developing on.
 
 # Building
 
-Toolchain is LLVM-17, so clang-17, etc etc
-Cmake
+Toolchain is LLVM version 18.1.0rc & Cmake
 
 # The goals/milestones for the game are:
 

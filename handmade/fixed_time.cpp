@@ -14,20 +14,23 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-#include <cmath>
-#include <cstdint>
+export module FixedTime;
+import std;
 
+export namespace FixedTime {
 struct Time64 {
-  uint32_t wholeSeconds;
-  uint32_t fraction;
+    std::uint32_t wholeSeconds;
+    std::uint32_t fraction;
 };
 
-uint64_t Time64ToU64(Time64 t) {
-  return (uint64_t)(t.wholeSeconds) << 32 | t.fraction;
+std::uint64_t Time64ToU64(Time64 t) {
+    return (std::uint64_t)(t.wholeSeconds) << 32 | t.fraction;
 }
 
 Time64 Time64AddFloat(Time64 t, float addend) {
-  uint64_t addendU64{(uint64_t)(addend * std::pow(2, 32) + 0.5f)};
-  uint64_t res{Time64ToU64(t) + addendU64};
-  return Time64{(uint32_t)(res >> 32), (uint32_t)(res & 0xFFFFFFFF)};
+    std::uint64_t addendU64{(std::uint64_t)(addend * std::pow(2, 32) + 0.5f)};
+    std::uint64_t res{Time64ToU64(t) + addendU64};
+    return Time64{(std::uint32_t)(res >> 32),
+                  (std::uint32_t)(res & 0xFFFFFFFF)};
 }
+} // namespace FixedTime

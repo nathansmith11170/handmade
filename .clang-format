@@ -2,5 +2,6 @@
 Language: Cpp
 BasedOnStyle:  LLVM
 Standard: Auto
-TabWidth: 2
+TabWidth: 4
+IndentWidth: 4
 UseTab: Never

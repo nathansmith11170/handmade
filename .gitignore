@@ -1,18 +1,2 @@
-# Binaries for programs and plugins
-*.exe
-*.exe~
-*.so
-*.dylib
-*.dll
-
-# Ignore binary output folders
 build
-
-# Ignore common editor/system specific metadata
-.DS_Store
-.idea/
-*.iml
 .cache
-
-# ENV
-.env

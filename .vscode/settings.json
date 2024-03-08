@@ -1,10 +1,18 @@
 {
-  "cmake.sourceDirectory": "/home/nathan/repos/handmade/src",
-  "cmake.loggingLevel": "debug",
-  "clangd.arguments": [
-    "-log=verbose",
-    "-pretty",
-    "--background-index",
-    "--compile-commands-dir=/build"
+  "C_Cpp.intelliSenseEngine": "disabled",
+  "clangd.path": "/usr/local/bin/clangd",
+  "files.associations": {
+    "*.cxx": "cpp",
+    "*.mxx": "cpp",
+    "numbers": "cpp"
+  },
+  "cmake.sourceDirectory": "/home/nathan/repos/handmade/handmade",
+  "cmake.configureArgs": [
+    "-DCMAKE_CXX_COMPILER=/usr/local/bin/clang++",
+    "-DLIBCXX_BUILD=/home/nathan/repos/probe/llvm-project/build-bmi"
+  ],
+  "cmake.buildArgs": [
+    "--parallel",
+    "1"
   ]
 }
