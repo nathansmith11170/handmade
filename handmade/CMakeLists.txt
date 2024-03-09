@@ -12,6 +12,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED YES)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 cmake_policy(VERSION 3.28)
+set(CMAKE_CXX_SCAN_FOR_MODULES ON)
 
 #
 # Import the modules from libc++
@@ -58,10 +59,12 @@ target_link_libraries(sdl_handmade PRIVATE ${SDL2_LIBRARIES})
 target_sources(sdl_handmade
     PUBLIC
         sdl_handmade.cpp
+        sdl_platform_impl.cpp
+        handmade_impl.cpp
 )
 target_sources(sdl_handmade
     PUBLIC
-        FILE_SET all_my_modules TYPE CXX_MODULES FILES
-        fixed_time.cpp
-        handmade.cpp
+        FILE_SET CXX_MODULES FILES
+        handmade.cppm
+        platform.cppm
 )

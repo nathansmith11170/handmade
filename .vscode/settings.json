@@ -2,9 +2,7 @@
   "C_Cpp.intelliSenseEngine": "disabled",
   "clangd.path": "/usr/local/bin/clangd",
   "files.associations": {
-    "*.cxx": "cpp",
-    "*.mxx": "cpp",
-    "numbers": "cpp"
+    "**.cppm": "cpp"
   },
   "cmake.sourceDirectory": "/home/nathan/repos/handmade/handmade",
   "cmake.configureArgs": [

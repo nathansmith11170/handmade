@@ -14,10 +14,9 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-import std;
-import FixedTime;
-import Handmade;
 
+import std;
+import Handmade;
 #include <SDL.h>
 
 struct SdlContext {
@@ -29,51 +28,20 @@ struct SdlContext {
 };
 
 static void drawBegin(SdlContext sdlc) { SDL_RenderClear(sdlc.renderer); }
-static void drawFrame(SdlContext sdlc,
-                      Handmade::GameOffscreenBuffer offscreenBuf) {
-    int32_t screenWidth{};
-    int32_t screenHeight{};
-    int32_t screenPitch{};
+static void drawFrame(SdlContext sdlc, GameOffscreenBuffer offscreenBuf) {
+    std::int32_t screenWidth{};
+    std::int32_t screenHeight{};
+    std::int32_t screenPitch{};
     void *screenPixels{};
     SDL_QueryTexture(sdlc.screen, nullptr, nullptr, &screenWidth,
                      &screenHeight);
     SDL_LockTexture(sdlc.screen, nullptr, &screenPixels, &screenPitch);
-    memcpy(screenPixels, offscreenBuf.memory, screenHeight * screenPitch);
+    memcpy(screenPixels, offscreenBuf.memory.data(),
+           screenHeight * screenPitch);
     SDL_UnlockTexture(sdlc.screen);
     SDL_RenderCopy(sdlc.renderer, sdlc.screen, nullptr, nullptr);
 }
 static void drawEnd(SdlContext sdlc) { SDL_RenderPresent(sdlc.renderer); }
-
-// static DebugReadFileResult debugPlatformReadEntireFile(const char *fileName)
-// {
-//   SDL_RWops *rwOps = SDL_RWFromFile(fileName, "r");
-//   if (rwOps == nullptr) {
-//     // TODO(Nathan) logging
-//     return DebugReadFileResult{nullptr, 0};
-//   }
-//   void *data = SDL_LoadFile_RW(rwOps, 0, 0);
-//   if (data == nullptr) {
-//     // TODO(Nathan) logging
-//     return DebugReadFileResult{nullptr, 0};
-//   }
-//   int fileSize = rwOps->size(rwOps);
-//   rwOps->close(rwOps);
-//   return DebugReadFileResult{data, fileSize};
-// }
-
-// static void debugPlatformFreeFileMemory(void *memory) { SDL_free(memory); }
-
-// static bool debugPlatformWriteEntireFile(const char *fileName, int fileSize,
-//                                          void *memory) {
-//   SDL_RWops *rwOps = SDL_RWFromFile(fileName, "w");
-//   if (rwOps == nullptr) {
-//     // TODO(Nathan) logging
-//     return false;
-//   }
-//   int written = rwOps->write(rwOps, memory, sizeof(char), fileSize);
-//   rwOps->close(rwOps);
-//   return written == fileSize;
-// }
 
 constexpr float gameTickSeconds{0.0333333333f};
 
@@ -123,42 +91,36 @@ int main() {
         std::cout << "Error opening audio device: " << err << '\n';
     }
 
-    Handmade::GameMemory gameMemory{};
-    gameMemory.permanentStorageSize = 64ll * 1024ll * 1024ll;
-    gameMemory.permanentStorage =
-        (unsigned char *)malloc(64ll * 1024ll * 1024ll);
-    gameMemory.transientStorageSize = 4ll * 1024ll * 1024ll * 1024ll;
-    gameMemory.transientStorage =
-        (unsigned char *)malloc(4ll * 1024ll * 1024ll * 1024ll);
+    auto gameMemory = new GameMemory{};
 
-    Handmade::GameOffscreenBuffer gameOffscreenBuffer{};
+    GameOffscreenBuffer gameOffscreenBuffer{};
     gameOffscreenBuffer.width = 1024;
     gameOffscreenBuffer.height = 768;
     gameOffscreenBuffer.pitch = 1024 * 4;
-    gameOffscreenBuffer.memory = (unsigned char *)malloc(
-        gameOffscreenBuffer.pitch * gameOffscreenBuffer.height);
+    gameOffscreenBuffer.memory = std::vector<std::uint32_t>(
+        gameOffscreenBuffer.height * gameOffscreenBuffer.pitch);
 
-    Handmade::GameSoundBuffer soundBuffer{};
+    GameSoundBuffer soundBuffer{};
     soundBuffer.samplesPerSec = sdlc.audioDevice.freq;
     soundBuffer.bytesPerSample = SDL_AUDIO_BITSIZE(sdlc.audioDevice.format) /
                                  8 * sdlc.audioDevice.channels;
     soundBuffer.enabled = sdlc.audioDeviceId != 0;
     if (soundBuffer.enabled) {
-        soundBuffer.memory =
-            (short *)malloc(sdlc.audioDevice.freq * soundBuffer.bytesPerSample *
-                            sdlc.audioDevice.channels);
+        soundBuffer.memory = std::vector<std::int16_t>(
+            sdlc.audioDevice.freq * soundBuffer.bytesPerSample *
+            sdlc.audioDevice.channels);
     }
 
-    Handmade::GameInput gameInput{};
+    GameInput gameInput{};
 
-    FixedTime::Time64 gameClock{};
+    Time64 gameClock{};
     float accumulator{};
     float fpsPrintDelay{};
-    int64_t frameCount{};
+    std::int64_t frameCount{};
 
-    uint64_t lastCounter{SDL_GetPerformanceCounter()};
+    std::uint64_t lastCounter{SDL_GetPerformanceCounter()};
     bool isAudioPaused{true};
-    updateGame(&gameMemory, &gameInput);
+    updateGame(gameMemory, &gameInput);
     while (!shouldClose) {
         SDL_Event evt{};
         while (SDL_PollEvent(&evt)) {
@@ -211,7 +173,7 @@ int main() {
             }
         }
 
-        uint64_t currentCounter{SDL_GetPerformanceCounter()};
+        std::uint64_t currentCounter{SDL_GetPerformanceCounter()};
         float frameTime{(float)(currentCounter - lastCounter) /
                         (float)(SDL_GetPerformanceFrequency())};
         lastCounter = currentCounter;
@@ -225,22 +187,22 @@ int main() {
         }
 
         while (accumulator > gameTickSeconds) {
-            updateGame(&gameMemory, &gameInput);
+            updateGame(gameMemory, &gameInput);
             gameClock = Time64AddFloat(gameClock, gameTickSeconds);
             accumulator -= gameTickSeconds;
         }
 
-        int32_t targetQueueBytes{(int32_t)((float)(soundBuffer.samplesPerSec *
-                                                   soundBuffer.bytesPerSample *
-                                                   gameTickSeconds * 2) +
-                                           0.5f)};
-        uint32_t bytesToWrite{targetQueueBytes -
-                              SDL_GetQueuedAudioSize(sdlc.audioDeviceId)};
+        std::int32_t targetQueueBytes{(std::int32_t)(
+            (float)(soundBuffer.samplesPerSec * soundBuffer.bytesPerSample *
+                    gameTickSeconds * 2) +
+            0.5f)};
+        std::uint32_t bytesToWrite{targetQueueBytes -
+                                   SDL_GetQueuedAudioSize(sdlc.audioDeviceId)};
         soundBuffer.samplesNeeded =
             bytesToWrite > 0 ? bytesToWrite / soundBuffer.bytesPerSample : 0;
-        fillBuffers(&gameMemory, &gameOffscreenBuffer, &soundBuffer);
+        fillBuffers(gameMemory, &gameOffscreenBuffer, &soundBuffer);
         if (soundBuffer.enabled) {
-            SDL_QueueAudio(sdlc.audioDeviceId, soundBuffer.memory,
+            SDL_QueueAudio(sdlc.audioDeviceId, soundBuffer.memory.data(),
                            bytesToWrite);
         }
 
@@ -254,6 +216,7 @@ int main() {
         }
     }
 
+    delete gameMemory;
     if (sdlc.audioDeviceId != 0) {
         SDL_CloseAudioDevice(sdlc.audioDeviceId);
     }
