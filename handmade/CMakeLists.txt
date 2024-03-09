@@ -58,7 +58,7 @@ target_include_directories(sdl_handmade PRIVATE ${SDL2_INCLUDE_DIRS})
 target_link_libraries(sdl_handmade PRIVATE ${SDL2_LIBRARIES})
 target_sources(sdl_handmade
     PUBLIC
-        sdl_handmade.cpp
+        sdl_main.cpp
         sdl_platform_impl.cpp
         handmade_impl.cpp
 )
