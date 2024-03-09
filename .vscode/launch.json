@@ -11,7 +11,7 @@
       "program": "${workspaceFolder}/build/sdl_handmade",
       "args": [],
       "cwd": "${workspaceFolder}",
-      "preLaunchTask": "CMake: clean rebuild"
+      "preLaunchTask": "CMake: build"
     }
   ]
 }

@@ -3,14 +3,14 @@
 	"tasks": [
 		{
 			"type": "cmake",
-			"label": "CMake: clean rebuild",
-			"command": "cleanRebuild",
+			"label": "CMake: build",
+			"command": "build",
 			"targets": [
-				"all"
+				"sdl_handmade"
 			],
 			"group": "build",
 			"problemMatcher": [],
-			"detail": "CMake template clean rebuild task"
+			"detail": "CMake template build task"
 		}
 	]
 }

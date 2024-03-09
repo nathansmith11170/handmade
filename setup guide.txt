@@ -1,0 +1,42 @@
+# For my setup, I am using Ubuntu 23.01, but 22.04 or any linux distribution would probably be similar
+
+# We're going to need git, curl, wget, and build-essential to set up the toolchain
+apt-get update
+apt-get install -y git curl build-essential wget
+apt-get clean
+
+mkdir ~/repos
+# Next, clone and build latest cmake, add to PATH
+git clone --filter=blob:none https://github.com/Kitware/CMake.git
+cd CMake
+git checkout 5e984bb # 3.28.3
+./bootstrap && make && sudo make install
+cd ~/repos
+
+# Next, clone and build latest Ninja, add to PATH
+git clone --filter=blob:none https://github.com/ninja-build/ninja.git
+cd ninja
+git checout a524bf3 # 1.11.1
+cmake -Bbuild-cmake
+cmake --build build-cmake
+cd ~/repos
+
+# Next, clone and build llvm 18.1.0 - installs to /usr/local
+git clone --filter=blob:none https://github.com/llvm/llvm-project.git
+cd llvm-project
+git checkout 461274b
+cmake -S llvm -B build -G Ninja -DLLVM_ENABLE_PROJECTS='clang;clang-tools-extra;lldb;lld' -DCMAKE_BUILD_TYPE=Release
+ninja -C -j12 build check-llvm install # limit parallel jobs as needed - this compilation can crash depending on hardware capabilities
+cd ~/repos
+
+# Next, set system default C++ compiler, C compiler, and linker
+update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++ 40
+update-alternatives --install /usr/bin/c++ c++ /usr/local/bin/clang++ 60
+echo "\n" | update-alternatives --config c++
+update-alternatives --install /usr/bin/cc cc /usr/bin/gcc 40
+update-alternatives --install /usr/bin/cc cc /usr/local/bin/clang 60
+echo "\n" | update-alternatives --config cc
+update-alternatives --install /usr/bin/ld ld /usr/bin/x86_64-linux-gnu-ld 40
+update-alternatives --install /usr/bin/ld ld /usr/local/bin/ld64.lld 60
+echo "\n" | update-alternatives --config ld
+

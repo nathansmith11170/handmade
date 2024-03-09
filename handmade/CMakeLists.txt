@@ -47,12 +47,12 @@ add_link_options($<$<COMPILE_LANGUAGE:CXX>:-Wl,-rpath,${LIBCXX_BUILD}/lib>)
 link_libraries(std c++)
 link_libraries(std.compat c++)
 
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/sdl2)
-find_package(SDL2 REQUIRED)
 
 #
 # Add the project
 #
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/sdl2)
+find_package(SDL2 REQUIRED)
 add_executable(sdl_handmade)
 target_include_directories(sdl_handmade PRIVATE ${SDL2_INCLUDE_DIRS})
 target_link_libraries(sdl_handmade PRIVATE ${SDL2_LIBRARIES})

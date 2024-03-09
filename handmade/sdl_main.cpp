@@ -14,7 +14,6 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-
 import std;
 import Handmade;
 #include <SDL.h>
@@ -36,8 +35,8 @@ static void drawFrame(SdlContext sdlc, GameOffscreenBuffer offscreenBuf) {
     SDL_QueryTexture(sdlc.screen, nullptr, nullptr, &screenWidth,
                      &screenHeight);
     SDL_LockTexture(sdlc.screen, nullptr, &screenPixels, &screenPitch);
-    memcpy(screenPixels, offscreenBuf.memory.data(),
-           screenHeight * screenPitch);
+    std::memcpy(screenPixels, offscreenBuf.memory.data(),
+                screenHeight * screenPitch);
     SDL_UnlockTexture(sdlc.screen);
     SDL_RenderCopy(sdlc.renderer, sdlc.screen, nullptr, nullptr);
 }
