@@ -24,12 +24,12 @@ export struct DebugReadFileResult {
 };
 
 export struct GameOffscreenBuffer {
-    std::vector<std::byte> memory;
+    std::vector<unsigned char> memory;
     int height, width, pitch;
 };
 
 export struct GameSoundBuffer {
-    std::vector<std::byte> memory;
+    std::vector<unsigned char> memory;
     int samplesPerSec;
     int t;
     int bytesPerSample;
@@ -58,8 +58,8 @@ export struct GameState {
 export struct GameMemory {
     bool isInitialized;
 
-    std::array<std::byte, 64l * 1024l * 1024l> permanentStorage;
-    std::array<std::byte, 4l * 1024l * 1024l * 1024l> transientStorage;
+    std::array<unsigned char, 64l * 1024l * 1024l> permanentStorage;
+    std::array<unsigned char, 4l * 1024l * 1024l * 1024l> transientStorage;
 };
 
 export struct Time64 {

@@ -96,7 +96,7 @@ int main() {
     gameOffscreenBuffer.width = 1024;
     gameOffscreenBuffer.height = 768;
     gameOffscreenBuffer.pitch = 1024 * 4;
-    gameOffscreenBuffer.memory = std::vector<std::byte>(
+    gameOffscreenBuffer.memory = std::vector<unsigned char>(
         gameOffscreenBuffer.height * gameOffscreenBuffer.pitch);
 
     GameSoundBuffer soundBuffer{};
@@ -105,9 +105,9 @@ int main() {
                                  8 * sdlc.audioDevice.channels;
     soundBuffer.enabled = sdlc.audioDeviceId != 0;
     if (soundBuffer.enabled) {
-        soundBuffer.memory = std::vector<std::byte>(sdlc.audioDevice.freq *
-                                                    soundBuffer.bytesPerSample *
-                                                    sdlc.audioDevice.channels);
+        soundBuffer.memory = std::vector<unsigned char>(
+            sdlc.audioDevice.freq * soundBuffer.bytesPerSample *
+            sdlc.audioDevice.channels);
     }
 
     GameInput gameInput{};
