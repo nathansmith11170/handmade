@@ -24,21 +24,21 @@ export struct DebugReadFileResult {
 };
 
 export struct GameOffscreenBuffer {
-    std::vector<std::uint32_t> memory;
-    std::int32_t height, width, pitch;
+    std::vector<std::byte> memory;
+    int height, width, pitch;
 };
 
 export struct GameSoundBuffer {
-    std::vector<std::int16_t> memory;
-    std::int32_t samplesPerSec;
-    std::int32_t t;
-    std::int32_t bytesPerSample;
-    std::int32_t samplesNeeded;
+    std::vector<std::byte> memory;
+    int samplesPerSec;
+    int t;
+    int bytesPerSample;
+    int samplesNeeded;
     bool enabled;
 };
 
 export struct GameButtonState {
-    std::int32_t halfTransitionCount;
+    int halfTransitionCount;
     bool endedDown;
 };
 
@@ -50,16 +50,16 @@ export struct GameInput {
 };
 
 export struct GameState {
-    std::int32_t blueOffset;
-    std::int32_t greenOffset;
-    std::int32_t toneHz;
+    int blueOffset;
+    int greenOffset;
+    int toneHz;
 };
 
 export struct GameMemory {
     bool isInitialized;
 
-    std::array<std::uint8_t, 64l * 1024l * 1024l> permanentStorage;
-    std::array<std::uint8_t, 4l * 1024l * 1024l * 1024l> transientStorage;
+    std::array<std::byte, 64l * 1024l * 1024l> permanentStorage;
+    std::array<std::byte, 4l * 1024l * 1024l * 1024l> transientStorage;
 };
 
 export struct Time64 {

@@ -10,6 +10,7 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED YES)
 # Libc++ doesn't support compiler extensions for modules.
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(FN)
 
 cmake_policy(VERSION 3.28)
 set(CMAKE_CXX_SCAN_FOR_MODULES ON)
@@ -36,6 +37,7 @@ add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-nostdinc++>)
 # For example from, the headers <cassert> and <version>.
 add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-isystem>)
 add_compile_options($<$<COMPILE_LANGUAGE:CXX>:${LIBCXX_BUILD}/include/c++/v1>)
+add_compile_options(-fno-exceptions)
 
 #
 # Adjust project linker flags

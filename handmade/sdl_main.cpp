@@ -28,9 +28,9 @@ struct SdlContext {
 
 static void drawBegin(SdlContext sdlc) { SDL_RenderClear(sdlc.renderer); }
 static void drawFrame(SdlContext sdlc, GameOffscreenBuffer offscreenBuf) {
-    std::int32_t screenWidth{};
-    std::int32_t screenHeight{};
-    std::int32_t screenPitch{};
+    int screenWidth{};
+    int screenHeight{};
+    int screenPitch{};
     void *screenPixels{};
     SDL_QueryTexture(sdlc.screen, nullptr, nullptr, &screenWidth,
                      &screenHeight);
@@ -96,7 +96,7 @@ int main() {
     gameOffscreenBuffer.width = 1024;
     gameOffscreenBuffer.height = 768;
     gameOffscreenBuffer.pitch = 1024 * 4;
-    gameOffscreenBuffer.memory = std::vector<std::uint32_t>(
+    gameOffscreenBuffer.memory = std::vector<std::byte>(
         gameOffscreenBuffer.height * gameOffscreenBuffer.pitch);
 
     GameSoundBuffer soundBuffer{};
@@ -105,9 +105,9 @@ int main() {
                                  8 * sdlc.audioDevice.channels;
     soundBuffer.enabled = sdlc.audioDeviceId != 0;
     if (soundBuffer.enabled) {
-        soundBuffer.memory = std::vector<std::int16_t>(
-            sdlc.audioDevice.freq * soundBuffer.bytesPerSample *
-            sdlc.audioDevice.channels);
+        soundBuffer.memory = std::vector<std::byte>(sdlc.audioDevice.freq *
+                                                    soundBuffer.bytesPerSample *
+                                                    sdlc.audioDevice.channels);
     }
 
     GameInput gameInput{};
@@ -115,9 +115,9 @@ int main() {
     Time64 gameClock{};
     float accumulator{};
     float fpsPrintDelay{};
-    std::int64_t frameCount{};
+    int frameCount{};
 
-    std::uint64_t lastCounter{SDL_GetPerformanceCounter()};
+    unsigned long lastCounter{SDL_GetPerformanceCounter()};
     bool isAudioPaused{true};
     updateGame(gameMemory, &gameInput);
     while (!shouldClose) {
@@ -172,7 +172,7 @@ int main() {
             }
         }
 
-        std::uint64_t currentCounter{SDL_GetPerformanceCounter()};
+        unsigned long currentCounter{SDL_GetPerformanceCounter()};
         float frameTime{(float)(currentCounter - lastCounter) /
                         (float)(SDL_GetPerformanceFrequency())};
         lastCounter = currentCounter;
@@ -191,12 +191,12 @@ int main() {
             accumulator -= gameTickSeconds;
         }
 
-        std::int32_t targetQueueBytes{(std::int32_t)(
-            (float)(soundBuffer.samplesPerSec * soundBuffer.bytesPerSample *
-                    gameTickSeconds * 2) +
-            0.5f)};
-        std::uint32_t bytesToWrite{targetQueueBytes -
-                                   SDL_GetQueuedAudioSize(sdlc.audioDeviceId)};
+        int targetQueueBytes{
+            (int)((float)(soundBuffer.samplesPerSec *
+                          soundBuffer.bytesPerSample * gameTickSeconds * 2) +
+                  0.5f)};
+        int bytesToWrite{(int)targetQueueBytes -
+                         (int)SDL_GetQueuedAudioSize(sdlc.audioDeviceId)};
         soundBuffer.samplesNeeded =
             bytesToWrite > 0 ? bytesToWrite / soundBuffer.bytesPerSample : 0;
         fillBuffers(gameMemory, &gameOffscreenBuffer, &soundBuffer);

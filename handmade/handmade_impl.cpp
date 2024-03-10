@@ -29,33 +29,34 @@ Time64 Time64AddFloat(Time64 t, float addend) {
 }
 
 void renderWeirdGradient(GameState *state, GameOffscreenBuffer *buffer) {
-    std::int32_t offset{0};
+    int offset{0};
     for (int y : std::ranges::iota_view{0, buffer->height}) {
         for (int x : std::ranges::iota_view{0, buffer->width}) {
             auto blue{(std::uint8_t)(x + state->blueOffset)};
             auto green{(std::uint8_t)(y + state->greenOffset)};
+
             auto bytes{(std::uint32_t)(blue) << 8 | green};
 
-            buffer->memory[offset] = bytes;
-            offset++;
+            std::memcpy(&(buffer->memory[offset]), &bytes, 4);
+            offset += 4;
         }
     }
 }
 
 void outputSine(GameState *state, GameSoundBuffer *buffer) {
     std::int16_t toneVolume{6000};
-    std::int32_t wavePeriod{buffer->samplesPerSec / state->toneHz};
+    int wavePeriod{buffer->samplesPerSec / state->toneHz};
 
-    std::int32_t outIndex{0};
+    int outIndex{0};
     for (int sampleIndex : std::ranges::iota_view{0, buffer->samplesNeeded}) {
         auto sineValue{
             std::sinf(2 * std::numbers::pi * (float)(buffer->t) / wavePeriod)};
         auto sampleValue{(std::int16_t)(sineValue * toneVolume)};
 
-        buffer->memory[outIndex] = sampleValue;
-        outIndex++;
-        buffer->memory[outIndex] = sampleValue;
-        outIndex++;
+        std::memcpy(&(buffer->memory[outIndex]), &sampleValue, 2);
+        outIndex += 2;
+        std::memcpy(&(buffer->memory[outIndex]), &sampleValue, 2);
+        outIndex += 2;
 
         buffer->t += 1;
         if (buffer->t > wavePeriod) {
