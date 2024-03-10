@@ -173,8 +173,8 @@ int main() {
         }
 
         unsigned long currentCounter{SDL_GetPerformanceCounter()};
-        float frameTime{(float)(currentCounter - lastCounter) /
-                        (float)(SDL_GetPerformanceFrequency())};
+        float frameTime{static_cast<float>(currentCounter - lastCounter) /
+                        static_cast<float>(SDL_GetPerformanceFrequency())};
         lastCounter = currentCounter;
         accumulator += frameTime;
         fpsPrintDelay += frameTime;
@@ -192,11 +192,13 @@ int main() {
         }
 
         int targetQueueBytes{
-            (int)((float)(soundBuffer.samplesPerSec *
-                          soundBuffer.bytesPerSample * gameTickSeconds * 2) +
-                  0.5f)};
-        int bytesToWrite{(int)targetQueueBytes -
-                         (int)SDL_GetQueuedAudioSize(sdlc.audioDeviceId)};
+            static_cast<int>(static_cast<float>(soundBuffer.samplesPerSec *
+                                                soundBuffer.bytesPerSample *
+                                                gameTickSeconds * 2) +
+                             0.5f)};
+        int bytesToWrite{
+            static_cast<int>(targetQueueBytes) -
+            static_cast<int>(SDL_GetQueuedAudioSize(sdlc.audioDeviceId))};
         soundBuffer.samplesNeeded =
             bytesToWrite > 0 ? bytesToWrite / soundBuffer.bytesPerSample : 0;
         fillBuffers(gameMemory, &gameOffscreenBuffer, &soundBuffer);

@@ -18,24 +18,24 @@ module Handmade;
 import std;
 
 std::uint64_t Time64ToU64(Time64 t) {
-    return (std::uint64_t)(t.wholeSeconds) << 32 | t.fraction;
+    return static_cast<std::uint64_t>(t.wholeSeconds) << 32 | t.fraction;
 }
 
 Time64 Time64AddFloat(Time64 t, float addend) {
-    auto addendU64{(std::uint64_t)(addend * std::pow(2, 32) + 0.5f)};
+    auto addendU64{static_cast<std::uint64_t>(addend * std::pow(2, 32) + 0.5f)};
     auto res{Time64ToU64(t) + addendU64};
-    return Time64{(std::uint32_t)(res >> 32),
-                  (std::uint32_t)(res & 0xFFFFFFFF)};
+    return Time64{static_cast<std::uint32_t>(res >> 32),
+                  static_cast<std::uint32_t>(res & 0xFFFFFFFF)};
 }
 
 void renderWeirdGradient(GameState *state, GameOffscreenBuffer *buffer) {
     int offset{0};
     for (int y : std::ranges::iota_view{0, buffer->height}) {
         for (int x : std::ranges::iota_view{0, buffer->width}) {
-            auto blue{(std::uint8_t)(x + state->blueOffset)};
-            auto green{(std::uint8_t)(y + state->greenOffset)};
+            auto blue{static_cast<std::uint8_t>(x + state->blueOffset)};
+            auto green{static_cast<std::uint8_t>(y + state->greenOffset)};
 
-            auto bytes{(std::uint32_t)(blue) << 8 | green};
+            auto bytes{static_cast<std::uint32_t>(blue) << 8 | green};
 
             std::memcpy(&(buffer->memory[offset]), &bytes, 4);
             offset += 4;
@@ -49,9 +49,9 @@ void outputSine(GameState *state, GameSoundBuffer *buffer) {
 
     int outIndex{0};
     for (int sampleIndex : std::ranges::iota_view{0, buffer->samplesNeeded}) {
-        auto sineValue{
-            std::sinf(2 * std::numbers::pi * (float)(buffer->t) / wavePeriod)};
-        auto sampleValue{(std::int16_t)(sineValue * toneVolume)};
+        auto sineValue{std::sinf(2 * std::numbers::pi *
+                                 static_cast<float>(buffer->t) / wavePeriod)};
+        auto sampleValue{static_cast<std::int16_t>(sineValue * toneVolume)};
 
         std::memcpy(&(buffer->memory[outIndex]), &sampleValue, 2);
         outIndex += 2;
@@ -66,7 +66,8 @@ void outputSine(GameState *state, GameSoundBuffer *buffer) {
 }
 
 void updateGame(GameMemory *memory, GameInput *input) {
-    auto gameState = (GameState *)memory->permanentStorage.data();
+    auto gameState =
+        reinterpret_cast<GameState *>(memory->permanentStorage.data());
 
     if (!memory->isInitialized) {
         gameState->toneHz = 256;
@@ -91,7 +92,8 @@ void updateGame(GameMemory *memory, GameInput *input) {
 
 void fillBuffers(GameMemory *memory, GameOffscreenBuffer *offscreenBuffer,
                  GameSoundBuffer *soundBuffer) {
-    auto gameState = (GameState *)memory->permanentStorage.data();
+    auto gameState =
+        reinterpret_cast<GameState *>(memory->permanentStorage.data());
 
     renderWeirdGradient(gameState, offscreenBuffer);
     if (soundBuffer->enabled) {
