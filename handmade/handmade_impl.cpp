@@ -51,7 +51,7 @@ void outputSine(GameState *state, GameSoundBuffer *buffer) {
     int wavePeriod{buffer->samplesPerSec / state->toneHz};
 
     int outIndex{0};
-    for (int sampleIndex : std::ranges::iota_view{0, buffer->samplesNeeded}) {
+    while (outIndex < buffer->samplesNeeded * buffer->bytesPerSample) {
         auto sineValue{sinf(2 * std::numbers::pi *
                             static_cast<float>(buffer->t) / wavePeriod)};
         auto sampleValue{static_cast<int16_t>(sineValue * toneVolume)};

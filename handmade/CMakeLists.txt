@@ -14,7 +14,7 @@ cmake_policy(VERSION 3.28)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-# Use custom libc++ compiled without support for exceptions
+# Use custom libc++ compiled without exception 'feature'
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-exceptions -stdlib=libc++")
 add_link_options($<$<COMPILE_LANGUAGE:CXX>:-nostdlib++>)
 add_link_options($<$<COMPILE_LANGUAGE:CXX>:-nostdinc++>)

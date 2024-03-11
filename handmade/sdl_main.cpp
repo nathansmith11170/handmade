@@ -17,6 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "handmade.hpp"
 #include <SDL.h>
 #include <iostream>
+#include <new>
 
 struct SdlContext {
     SDL_Window *window;
@@ -35,8 +36,8 @@ static void drawFrame(SdlContext sdlc, GameOffscreenBuffer offscreenBuf) {
     SDL_QueryTexture(sdlc.screen, nullptr, nullptr, &screenWidth,
                      &screenHeight);
     SDL_LockTexture(sdlc.screen, nullptr, &screenPixels, &screenPitch);
-    std::memcpy(screenPixels, offscreenBuf.memory.data(),
-                screenHeight * screenPitch);
+    memcpy(screenPixels, offscreenBuf.memory.data(),
+           screenHeight * screenPitch);
     SDL_UnlockTexture(sdlc.screen);
     SDL_RenderCopy(sdlc.renderer, sdlc.screen, nullptr, nullptr);
 }
@@ -90,7 +91,7 @@ int main() {
         std::cout << "Error opening audio device: " << err << '\n';
     }
 
-    auto gameMemory = new GameMemory{};
+    auto gameMemory = new (std::nothrow) GameMemory{};
     if (gameMemory == nullptr) {
         std::cout << "Error allocating game memory." << '\n';
         shouldClose = true;
@@ -221,7 +222,9 @@ int main() {
         }
     }
 
-    delete gameMemory;
+    if (gameMemory != nullptr) {
+        delete gameMemory;
+    }
     if (sdlc.audioDeviceId != 0) {
         SDL_CloseAudioDevice(sdlc.audioDeviceId);
     }
