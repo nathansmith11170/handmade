@@ -14,48 +14,51 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-module Handmade;
-import std;
+#include "handmade.hpp"
+#include <cmath>
+#include <cstdint>
+#include <numbers>
+#include <ranges>
 
-std::uint64_t Time64ToU64(Time64 t) {
-    return static_cast<std::uint64_t>(t.wholeSeconds) << 32 | t.fraction;
+uint64_t Time64ToU64(Time64 t) {
+    return static_cast<uint64_t>(t.wholeSeconds) << 32 | t.fraction;
 }
 
 Time64 Time64AddFloat(Time64 t, float addend) {
-    auto addendU64{static_cast<std::uint64_t>(addend * std::pow(2, 32) + 0.5f)};
+    auto addendU64{static_cast<uint64_t>(addend * pow(2, 32) + 0.5f)};
     auto res{Time64ToU64(t) + addendU64};
-    return Time64{static_cast<std::uint32_t>(res >> 32),
-                  static_cast<std::uint32_t>(res & 0xFFFFFFFF)};
+    return Time64{static_cast<uint32_t>(res >> 32),
+                  static_cast<uint32_t>(res & 0xFFFFFFFF)};
 }
 
 void renderWeirdGradient(GameState *state, GameOffscreenBuffer *buffer) {
     int offset{0};
     for (int y : std::ranges::iota_view{0, buffer->height}) {
         for (int x : std::ranges::iota_view{0, buffer->width}) {
-            auto blue{static_cast<std::uint8_t>(x + state->blueOffset)};
-            auto green{static_cast<std::uint8_t>(y + state->greenOffset)};
+            auto blue{static_cast<uint8_t>(x + state->blueOffset)};
+            auto green{static_cast<uint8_t>(y + state->greenOffset)};
 
-            auto bytes{static_cast<std::uint32_t>(blue) << 8 | green};
+            auto bytes{static_cast<uint32_t>(blue) << 8 | green};
 
-            std::memcpy(&(buffer->memory[offset]), &bytes, 4);
+            memcpy(&(buffer->memory[offset]), &bytes, 4);
             offset += 4;
         }
     }
 }
 
 void outputSine(GameState *state, GameSoundBuffer *buffer) {
-    std::int16_t toneVolume{6000};
+    int16_t toneVolume{6000};
     int wavePeriod{buffer->samplesPerSec / state->toneHz};
 
     int outIndex{0};
     for (int sampleIndex : std::ranges::iota_view{0, buffer->samplesNeeded}) {
-        auto sineValue{std::sinf(2 * std::numbers::pi *
-                                 static_cast<float>(buffer->t) / wavePeriod)};
-        auto sampleValue{static_cast<std::int16_t>(sineValue * toneVolume)};
+        auto sineValue{sinf(2 * std::numbers::pi *
+                            static_cast<float>(buffer->t) / wavePeriod)};
+        auto sampleValue{static_cast<int16_t>(sineValue * toneVolume)};
 
-        std::memcpy(&(buffer->memory[outIndex]), &sampleValue, 2);
+        memcpy(&(buffer->memory[outIndex]), &sampleValue, 2);
         outIndex += 2;
-        std::memcpy(&(buffer->memory[outIndex]), &sampleValue, 2);
+        memcpy(&(buffer->memory[outIndex]), &sampleValue, 2);
         outIndex += 2;
 
         buffer->t += 1;

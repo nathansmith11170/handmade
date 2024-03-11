@@ -14,11 +14,14 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-export module Platform;
+#pragma once
 
-import Handmade;
+struct DebugReadFileResult {
+    void *data;
+    int fileSize;
+};
 
-export DebugReadFileResult debugPlatformReadEntireFile(const char *fileName);
-export void debugPlatformFreeFileMemory(void *memory);
-export bool debugPlatformWriteEntireFile(const char *fileName, int fileSize,
-                                         void *memory);
+DebugReadFileResult debugPlatformReadEntireFile(const char *fileName);
+void debugPlatformFreeFileMemory(void *memory);
+bool debugPlatformWriteEntireFile(const char *fileName, int fileSize,
+                                  void *memory);

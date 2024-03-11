@@ -14,9 +14,9 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-import std;
-import Handmade;
+#include "handmade.hpp"
 #include <SDL.h>
+#include <iostream>
 
 struct SdlContext {
     SDL_Window *window;
@@ -91,6 +91,10 @@ int main() {
     }
 
     auto gameMemory = new GameMemory{};
+    if (gameMemory == nullptr) {
+        std::cout << "Error allocating game memory." << '\n';
+        shouldClose = true;
+    }
 
     GameOffscreenBuffer gameOffscreenBuffer{};
     gameOffscreenBuffer.width = 1024;

@@ -14,12 +14,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-module;
 #include "SDL.h"
-
-module Platform;
-
-import Handmade;
+#include "platform.hpp"
 
 DebugReadFileResult debugPlatformReadEntireFile(const char *fileName) {
     SDL_RWops *rwOps = SDL_RWFromFile(fileName, "r");

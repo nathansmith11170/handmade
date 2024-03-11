@@ -14,21 +14,18 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-export module Handmade;
+#pragma once
 
-import std;
+#include <array>
+#include <cstdint>
+#include <vector>
 
-export struct DebugReadFileResult {
-    void *data;
-    int fileSize;
-};
-
-export struct GameOffscreenBuffer {
+struct GameOffscreenBuffer {
     std::vector<unsigned char> memory;
     int height, width, pitch;
 };
 
-export struct GameSoundBuffer {
+struct GameSoundBuffer {
     std::vector<unsigned char> memory;
     int samplesPerSec;
     int t;
@@ -37,42 +34,41 @@ export struct GameSoundBuffer {
     bool enabled;
 };
 
-export struct GameButtonState {
+struct GameButtonState {
     int halfTransitionCount;
     bool endedDown;
 };
 
-export struct GameInput {
+struct GameInput {
     GameButtonState speedUp;
     GameButtonState speedDown;
     GameButtonState strafeLeft;
     GameButtonState strafeRight;
 };
 
-export struct GameState {
+struct GameState {
     int blueOffset;
     int greenOffset;
     int toneHz;
 };
 
-export struct GameMemory {
+struct GameMemory {
     bool isInitialized;
 
     std::array<unsigned char, 64l * 1024l * 1024l> permanentStorage;
     std::array<unsigned char, 4l * 1024l * 1024l * 1024l> transientStorage;
 };
 
-export struct Time64 {
-    std::uint32_t wholeSeconds;
-    std::uint32_t fraction;
+struct Time64 {
+    uint32_t wholeSeconds;
+    uint32_t fraction;
 };
 
-export std::uint64_t Time64ToU64(Time64 t);
-export Time64 Time64AddFloat(Time64 t, float addend);
+std::uint64_t Time64ToU64(Time64 t);
+Time64 Time64AddFloat(Time64 t, float addend);
 
-export void renderWeirdGradient(GameState *state, GameOffscreenBuffer *buffer);
-export void outputSine(GameState *state, GameSoundBuffer *buffer);
-export void updateGame(GameMemory *memory, GameInput *input);
-export void fillBuffers(GameMemory *memory,
-                        GameOffscreenBuffer *offscreenBuffer,
-                        GameSoundBuffer *soundBuffer);
+void renderWeirdGradient(GameState *state, GameOffscreenBuffer *buffer);
+void outputSine(GameState *state, GameSoundBuffer *buffer);
+void updateGame(GameMemory *memory, GameInput *input);
+void fillBuffers(GameMemory *memory, GameOffscreenBuffer *offscreenBuffer,
+                 GameSoundBuffer *soundBuffer);
