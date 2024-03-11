@@ -64,7 +64,7 @@ struct Time64 {
     uint32_t fraction;
 };
 
-std::uint64_t Time64ToU64(Time64 t);
+uint64_t Time64ToU64(Time64 t);
 Time64 Time64AddFloat(Time64 t, float addend);
 
 void renderWeirdGradient(GameState *state, GameOffscreenBuffer *buffer);
