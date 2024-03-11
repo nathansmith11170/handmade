@@ -23,7 +23,7 @@ DebugReadFileResult debugPlatformReadEntireFile(const char *fileName) {
         // TODO(Nathan) logging
         return DebugReadFileResult{nullptr, 0};
     }
-    void *data = SDL_LoadFile_RW(rwOps, 0, 0);
+    void *data = SDL_LoadFile_RW(rwOps, nullptr, 0);
     if (data == nullptr) {
         // TODO(Nathan) logging
         return DebugReadFileResult{nullptr, 0};

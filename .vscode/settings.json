@@ -1,5 +1,4 @@
 {
-  "C_Cpp.intelliSenseEngine": "disabled",
   "clangd.path": "/usr/local/bin/clangd",
   "files.associations": {
     "**.cppm": "cpp"
@@ -8,6 +7,5 @@
   "cmake.configureArgs": [
     "-DCMAKE_CXX_COMPILER=/usr/local/bin/clang++",
     "-DLIBCXX_BUILD=/home/nathan/repos/probe/llvm-project/build-bmi"
-  ],
-  "clang-tidy.buildPath": "build"
+  ]
 }

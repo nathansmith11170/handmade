@@ -32,7 +32,7 @@ Time64 Time64AddFloat(Time64 t, float addend) {
 }
 
 void renderWeirdGradient(GameState *state, GameOffscreenBuffer *buffer) {
-    int offset{0};
+    size_t offset{0};
     for (int y : std::ranges::iota_view{0, buffer->height}) {
         for (int x : std::ranges::iota_view{0, buffer->width}) {
             auto blue{static_cast<uint8_t>(x + state->blueOffset)};
@@ -50,9 +50,9 @@ void outputSine(GameState *state, GameSoundBuffer *buffer) {
     int16_t toneVolume{6000};
     int wavePeriod{buffer->samplesPerSec / state->toneHz};
 
-    int outIndex{0};
+    size_t outIndex{0};
     while (outIndex < buffer->samplesNeeded * buffer->bytesPerSample) {
-        auto sineValue{sinf(2 * std::numbers::pi *
+        auto sineValue{sinf(2 * static_cast<float>(std::numbers::pi) *
                             static_cast<float>(buffer->t) / wavePeriod)};
         auto sampleValue{static_cast<int16_t>(sineValue * toneVolume)};
 
