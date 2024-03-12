@@ -16,9 +16,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 #include "SDL.h"
 #include "platform.hpp"
+#include <string>
 
-DebugReadFileResult debugPlatformReadEntireFile(const char *fileName) {
-    SDL_RWops *rwOps = SDL_RWFromFile(fileName, "r");
+DebugReadFileResult debugPlatformReadEntireFile(std::string fileName) {
+    SDL_RWops *rwOps = SDL_RWFromFile(fileName.c_str(), "r");
     if (rwOps == nullptr) {
         // TODO(Nathan) logging
         return DebugReadFileResult{nullptr, 0};
@@ -35,9 +36,9 @@ DebugReadFileResult debugPlatformReadEntireFile(const char *fileName) {
 
 void debugPlatformFreeFileMemory(void *memory) { SDL_free(memory); }
 
-bool debugPlatformWriteEntireFile(const char *fileName, int fileSize,
+bool debugPlatformWriteEntireFile(std::string fileName, int fileSize,
                                   void *memory) {
-    SDL_RWops *rwOps = SDL_RWFromFile(fileName, "w");
+    SDL_RWops *rwOps = SDL_RWFromFile(fileName.c_str(), "w");
     if (rwOps == nullptr) {
         // TODO(Nathan) logging
         return false;
