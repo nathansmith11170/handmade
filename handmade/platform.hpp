@@ -14,6 +14,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+#include <string>
 #pragma once
 
 struct DebugReadFileResult {
@@ -21,7 +22,7 @@ struct DebugReadFileResult {
     int fileSize;
 };
 
-DebugReadFileResult debugPlatformReadEntireFile(const char *fileName);
+DebugReadFileResult debugPlatformReadEntireFile(std::string fileName);
 void debugPlatformFreeFileMemory(void *memory);
-bool debugPlatformWriteEntireFile(const char *fileName, int fileSize,
+bool debugPlatformWriteEntireFile(std::string fileName, int fileSize,
                                   void *memory);
