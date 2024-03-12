@@ -14,17 +14,16 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-#pragma once
-#include <array>
-#include <cstdint>
-#include <vector>
+module;
+import std;
+export module Handmade;
 
-struct GameOffscreenBuffer {
+export struct GameOffscreenBuffer {
     std::vector<unsigned char> memory;
     int height, width, pitch;
 };
 
-struct GameSoundBuffer {
+export struct GameSoundBuffer {
     std::vector<unsigned char> memory;
     int samplesPerSec;
     int t;
@@ -33,41 +32,41 @@ struct GameSoundBuffer {
     bool enabled;
 };
 
-struct GameButtonState {
+export struct GameButtonState {
     int halfTransitionCount;
     bool endedDown;
 };
 
-struct GameInput {
+export struct GameInput {
     GameButtonState speedUp;
     GameButtonState speedDown;
     GameButtonState strafeLeft;
     GameButtonState strafeRight;
 };
 
-struct GameState {
+export struct GameState {
     int blueOffset;
     int greenOffset;
     int toneHz;
 };
 
-struct GameMemory {
+export struct GameMemory {
     bool isInitialized;
 
     std::array<unsigned char, 64l * 1024l * 1024l> permanentStorage;
     std::array<unsigned char, 4l * 1024l * 1024l * 1024l> transientStorage;
 };
 
-struct Time64 {
-    uint32_t wholeSeconds;
-    uint32_t fraction;
+export struct Time64 {
+    std::uint32_t wholeSeconds;
+    std::uint32_t fraction;
 };
 
-uint64_t Time64ToU64(Time64 t);
-Time64 Time64AddFloat(Time64 t, float addend);
+export std::uint64_t Time64ToU64(Time64 t);
+export Time64 Time64AddFloat(Time64 t, float addend);
 
-void renderWeirdGradient(GameState *state, GameOffscreenBuffer *buffer);
-void outputSine(GameState *state, GameSoundBuffer *buffer);
-void updateGame(GameMemory *memory, GameInput *input);
-void fillBuffers(GameMemory *memory, GameOffscreenBuffer *offscreenBuffer,
+export void renderWeirdGradient(GameState *state, GameOffscreenBuffer *buffer);
+export void outputSine(GameState *state, GameSoundBuffer *buffer);
+export void updateGame(GameMemory *memory, GameInput *input);
+export void fillBuffers(GameMemory *memory, GameOffscreenBuffer *offscreenBuffer,
                  GameSoundBuffer *soundBuffer);

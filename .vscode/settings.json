@@ -7,5 +7,9 @@
   "cmake.configureArgs": [
     "-DCMAKE_CXX_COMPILER=/usr/local/bin/clang++",
     "-DLIBCXX_BUILD=/home/nathan/repos/probe/llvm-project/build-bmi"
+  ],
+  "cmake.buildArgs": [
+    "-j",
+    "1"
   ]
 }

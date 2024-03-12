@@ -14,15 +14,16 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-#pragma once
-#include <string>
+module;
+import std;
+export module Platform;
 
-struct DebugReadFileResult {
+export struct DebugReadFileResult {
     void *data;
     int fileSize;
 };
 
-DebugReadFileResult debugPlatformReadEntireFile(std::string fileName);
-void debugPlatformFreeFileMemory(void *memory);
-bool debugPlatformWriteEntireFile(std::string fileName, int fileSize,
+export DebugReadFileResult debugPlatformReadEntireFile(std::string fileName);
+export void debugPlatformFreeFileMemory(void *memory);
+export bool debugPlatformWriteEntireFile(std::string fileName, int fileSize,
                                   void *memory);
