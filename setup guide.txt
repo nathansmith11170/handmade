@@ -39,3 +39,16 @@ echo "\n" | update-alternatives --config cc
 update-alternatives --install /usr/bin/ld ld /usr/bin/x86_64-linux-gnu-ld 40
 update-alternatives --install /usr/bin/ld ld /usr/local/bin/ld64.lld 60
 echo "\n" | update-alternatives --config ld
+
+# Build local libc++ for BMI files
+cd llvm-project
+mkdir build-bmi
+cmake -G Ninja -S runtimes -B build -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi;libunwind" -DLIBCXX_ENABLE_EXCEPTIONS=OFF -DLLVM_ENABLE_LLD=ON
+ninja -C build-bmi
+
+# Example build of project, from repo
+mkdir build
+cmake -G Ninja -S . -B build -DCMAKE_CXX_COMPILER=<path-to-compiler> -DLIBCXX_BUILD=<path-to-build-bmi>
+ninja -j1 std -C build
+ninja -C build
+build/main

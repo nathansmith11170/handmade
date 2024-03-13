@@ -35,7 +35,7 @@ static void drawFrame(SdlContext sdlc, GameOffscreenBuffer offscreenBuf) {
     SDL_QueryTexture(sdlc.screen, nullptr, nullptr, &screenWidth,
                      &screenHeight);
     SDL_LockTexture(sdlc.screen, nullptr, &screenPixels, &screenPitch);
-    memcpy(screenPixels, offscreenBuf.memory.data(),
+    std::memcpy(screenPixels, offscreenBuf.memory.data(),
            screenHeight * screenPitch);
     SDL_UnlockTexture(sdlc.screen);
     SDL_RenderCopy(sdlc.renderer, sdlc.screen, nullptr, nullptr);

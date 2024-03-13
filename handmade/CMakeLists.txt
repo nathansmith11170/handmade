@@ -15,7 +15,7 @@ cmake_policy(VERSION 3.28)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 #
-# Import the modules from libc++
+# Import the modules from libc++, built separately and without exception feature
 #
 include(FetchContent)
 FetchContent_Declare(
@@ -47,7 +47,6 @@ add_link_options($<$<COMPILE_LANGUAGE:CXX>:-Wl,-rpath,${LIBCXX_BUILD}/lib>)
 # Linking against the standard c++ library is required for CMake to get the proper dependencies.
 link_libraries(std c++)
 link_libraries(std.compat c++)
-# Use custom libc++ compiled without exception 'feature'
 
 # Add the project
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/sdl2)
