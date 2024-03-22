@@ -50,7 +50,7 @@ int main() {
     auto result{SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)};
     if (result < 0) {
         const char *err = SDL_GetError();
-        std::cout << "Error initializing SDL: " << err << '\n';
+        std::println("error initializing SDL: ", err);
         shouldClose = true;
     }
 
@@ -59,7 +59,7 @@ int main() {
                          SDL_WINDOWPOS_UNDEFINED, 1024, 768, SDL_WINDOW_SHOWN);
     if (sdlc.window == nullptr) {
         const char *err = SDL_GetError();
-        std::cout << "Error creating window: " << err << '\n';
+        std::println("error creating window: ", err);
         shouldClose = true;
     }
 
@@ -67,7 +67,7 @@ int main() {
         SDL_CreateRenderer(sdlc.window, 0, SDL_RENDERER_ACCELERATED);
     if (sdlc.renderer == nullptr) {
         const char *err = SDL_GetError();
-        std::cout << "Error creating renderer: " << err << '\n';
+        std::println("error creating renderer: ", err);
         shouldClose = true;
     }
 
@@ -75,7 +75,7 @@ int main() {
                                     SDL_TEXTUREACCESS_STREAMING, 1024, 768);
     if (sdlc.screen == nullptr) {
         const char *err = SDL_GetError();
-        std::cout << "Error creating texture: " << err << '\n';
+        std::println("error creating texture: ", err);
         shouldClose = true;
     }
 
@@ -87,12 +87,12 @@ int main() {
     sdlc.audioDevice = requestedSpec;
     if (sdlc.audioDeviceId == 0) {
         const char *err = SDL_GetError();
-        std::cout << "Error opening audio device: " << err << '\n';
+        std::println("error opening audio device: ", err);
     }
 
-    auto gameMemory = new (std::nothrow) GameMemory{};
+    std::unique_ptr<GameMemory> gameMemory{new (std::nothrow) GameMemory};
     if (gameMemory == nullptr) {
-        std::cout << "Error allocating game memory." << '\n';
+        std::println("error allocating game memory.");
         shouldClose = true;
     }
 
@@ -123,7 +123,7 @@ int main() {
 
     unsigned long lastCounter{SDL_GetPerformanceCounter()};
     bool isAudioPaused{true};
-    updateGame(gameMemory, &gameInput);
+    updateGame(gameMemory.get(), &gameInput);
     while (!shouldClose) {
         SDL_Event evt{};
         while (SDL_PollEvent(&evt)) {
@@ -190,7 +190,7 @@ int main() {
         }
 
         while (accumulator > gameTickSeconds) {
-            updateGame(gameMemory, &gameInput);
+            updateGame(gameMemory.get(), &gameInput);
             gameClock = Time64AddFloat(gameClock, gameTickSeconds);
             accumulator -= gameTickSeconds;
         }
@@ -205,7 +205,7 @@ int main() {
             static_cast<int>(SDL_GetQueuedAudioSize(sdlc.audioDeviceId))};
         soundBuffer.samplesNeeded =
             bytesToWrite > 0 ? bytesToWrite / soundBuffer.bytesPerSample : 0;
-        fillBuffers(gameMemory, &gameOffscreenBuffer, &soundBuffer);
+        fillBuffers(gameMemory.get(), &gameOffscreenBuffer, &soundBuffer);
         if (soundBuffer.enabled) {
             SDL_QueueAudio(sdlc.audioDeviceId, soundBuffer.memory.data(),
                            bytesToWrite);
@@ -221,9 +221,6 @@ int main() {
         }
     }
 
-    if (gameMemory != nullptr) {
-        delete gameMemory;
-    }
     if (sdlc.audioDeviceId != 0) {
         SDL_CloseAudioDevice(sdlc.audioDeviceId);
     }

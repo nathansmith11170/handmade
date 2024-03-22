@@ -28,6 +28,7 @@ DebugReadFileResult debugPlatformReadEntireFile(std::string fileName) {
     void *data = SDL_LoadFile_RW(rwOps, nullptr, 0);
     if (data == nullptr) {
         // TODO(Nathan) logging
+        rwOps->close(rwOps);
         return DebugReadFileResult{nullptr, 0};
     }
     int fileSize = rwOps->size(rwOps);
