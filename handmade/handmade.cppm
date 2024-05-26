@@ -15,7 +15,9 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 module;
-import std;
+#include <cstdint>
+#include <vector>
+#include <array>
 export module Handmade;
 
 export struct GameOffscreenBuffer {

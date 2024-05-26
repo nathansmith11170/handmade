@@ -5,13 +5,12 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "type": "lldb",
+      "type": "gdb",
       "request": "launch",
-      "name": "Debug SDL Platform",
-      "program": "${workspaceFolder}/build/bin/sdl_handmade",
-      "args": [],
-      "cwd": "${workspaceFolder}",
-      "preLaunchTask": "CMake: build"
+      "name": "Launch Program",
+      "target": "./build/bin/sdl_handmade",
+      "cwd": "${workspaceRoot}",
+      "valuesFormatting": "parseText"
     }
   ]
 }

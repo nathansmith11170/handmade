@@ -15,7 +15,11 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 module;
-import std;
+#include <cstring>
+#include <cstdint>
+#include <cmath>
+#include <numbers>
+#include <ranges>
 module Handmade;
 
 std::uint64_t Time64ToU64(Time64 t) {
